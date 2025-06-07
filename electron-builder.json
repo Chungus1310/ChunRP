@@ -1,0 +1,42 @@
+{
+  "appId": "com.chunrp.app",
+  "productName": "ChunRP",
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "src/**/*",
+    "data/**/*",
+    "!data/memory-lancedb/**/*",
+    "!data/chat-history/**/*", 
+    "!**/*.map", 
+    "node_modules/**/*",
+    "package.json"
+  ],
+  "win": {
+    "target": ["nsis"],
+    "icon": "src/frontend/assets/icon.png"
+  },
+  "mac": {
+    "target": ["dmg"],
+    "icon": "src/frontend/assets/icon.icns"
+  },
+  "linux": {
+    "target": ["AppImage"],
+    "icon": "src/frontend/assets/icon.png",
+    "category": "Utility"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true
+  },
+  "extraResources": [
+    {
+      "from": "src/frontend/assets",
+      "to": "assets",
+      "filter": ["**/*"]
+    }
+  ],
+  "asar": true
+}

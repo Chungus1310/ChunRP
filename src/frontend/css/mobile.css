@@ -1,0 +1,516 @@
+/* Edit Mode: Make edit box wider and more usable on mobile */
+@media screen and (max-width: 1024px) {
+  .edit-textarea {
+    min-width: 0;
+    width: 98vw;
+    max-width: 98vw;
+    min-height: 70px;
+    font-size: 1rem;
+    padding: 10px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background: var(--input-bg);
+    color: var(--text-color);
+    resize: vertical;
+    box-sizing: border-box;
+    margin-bottom: 8px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .edit-actions {
+    flex-direction: row;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .edit-textarea {
+    min-width: 0;
+    width: 99vw;
+    max-width: 99vw;
+    min-height: 60px;
+    font-size: 1rem;
+    padding: 10px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background: var(--input-bg);
+    color: var(--text-color);
+    resize: vertical;
+    box-sizing: border-box;
+    margin-bottom: 8px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .edit-actions {
+    flex-direction: row;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+}
+/* Mobile responsive styles for ChunRP */
+
+/* Default variables specifically for mobile adjustments */
+:root {
+  /* Mobile-specific sizing */
+  --mobile-sidebar-width: 280px;
+  --mobile-header-height: 60px;
+  --mobile-footer-height: 60px;
+}
+
+/* Default state for mobile elements (hidden on desktop) */
+#mobile-menu-toggle {
+  display: none;
+}
+
+.mobile-nav-footer {
+  display: none;
+}
+
+/* Make mobile elements visible at appropriate breakpoints in the media queries below */
+
+/* Base Mobile Styles - Applied at 1024px and below */
+@media screen and (max-width: 1024px) {
+  /* Reduce spacing slightly */
+  .sidebar {
+    width: 260px; /* Slightly smaller sidebar */
+  }
+  
+  /* Adjust message bubbles to take more width */
+  .message {
+    max-width: 85%;
+  }
+}
+
+/* Tablet Styles - Applied at 768px and below */
+@media screen and (max-width: 768px) {
+  /* App Layout Changes */
+  .app-container {
+    flex-direction: column;
+    height: 100vh;
+  }
+  
+  /* Sidebar becomes fixed height at top */
+  .sidebar {
+    width: 100%;
+    height: var(--mobile-header-height);
+    flex-direction: row;
+    align-items: center;
+    padding: var(--spacing-xs) var(--spacing-md);
+    overflow: hidden;
+    position: relative;
+    z-index: 30;
+  }
+  
+  .sidebar.expanded {
+    height: 100vh;
+    overflow-y: auto;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  /* Hide most sidebar elements by default */
+  .sidebar-section, .sidebar-footer {
+    display: none;
+  }
+  
+  /* Show all elements when sidebar is expanded */
+  .sidebar.expanded .sidebar-section,
+  .sidebar.expanded .sidebar-footer {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  /* Modify header for mobile */
+  .sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    border: none;
+  }
+  
+  /* Mobile toggle button */
+  #mobile-menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: transparent;
+    border: none;
+    color: var(--text-color);
+    font-size: 1.5rem;
+    cursor: pointer;
+  }
+    /* Main content needs to adjust for header */
+  .main-content {
+    height: calc(100vh - var(--mobile-header-height));
+  }
+
+  /* Chat container adjustments to remove the gap */
+  .chat-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+  
+  /* Messages take more width on mobile */
+  .message {
+    max-width: 90%;
+  }
+  
+  /* Chat container adjustments */
+  .chat-container {
+    height: calc(100% - var(--mobile-header-height) - var(--mobile-footer-height));
+  }
+  /* Ensure chat messages are not hidden behind input/footer */
+  .chat-messages {
+    padding-bottom: calc(var(--mobile-footer-height) * 2 + 24px) !important;
+  }
+  
+  /* Position the new mobile footer menu */
+  .mobile-nav-footer {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: var(--sidebar-bg);
+    backdrop-filter: blur(var(--blur-intensity));
+    border-top: 1px solid var(--border-color);
+    z-index: 20;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    justify-content: space-around;
+    pointer-events: auto;
+  }
+
+  /* Make chat input fixed above the footer on mobile */
+  .chat-input-container {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: var(--mobile-footer-height);
+    z-index: 30;
+    background-color: var(--sidebar-bg);
+    border-top: 1px solid var(--border-color);
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+
+  /* When input is focused, hide the mobile nav footer for more space */
+  .mobile-nav-footer.hide-on-input {
+    display: none !important;
+  }
+  
+  /* Mobile tab buttons */
+  .mobile-tab-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--spacing-xs);
+    color: var(--text-light);
+    background: transparent;
+    border: none;
+    font-size: var(--font-sm);
+    cursor: pointer;
+  }
+  
+  .mobile-tab-btn i {
+    font-size: 1.3rem;
+    margin-bottom: var(--spacing-xs);
+  }
+  
+  .mobile-tab-btn.active {
+    color: var(--primary-color);
+  }
+  
+  /* Modal adjustments for mobile */
+  .modal-content {
+    width: 95%;
+    max-height: 90vh;
+  }
+  
+  /* Character card adjustments */
+  .character-card {
+    padding: var(--spacing-md);
+  }
+  
+  /* Memory panel takes full width */
+  .side-panel {
+    width: 100%;
+    right: -100%;
+  }
+  
+  /* Form adjustments */
+  .param-group {
+    flex-wrap: wrap;
+  }
+  
+  .param-group label {
+    min-width: 100%;
+    margin-bottom: var(--spacing-xs);
+  }
+}
+
+/* Mobile Styles - Applied at 480px and below */
+@media screen and (max-width: 480px) {
+  /* Further reduce padding and margins */
+  .chat-header, .chat-input-container {
+    padding: var(--spacing-xs);
+  }
+  
+  .chat-messages {
+    padding: var(--spacing-sm);
+  }
+  
+  /* Messages take full width on small phones */
+  .message {
+    max-width: 95%;
+  }
+  
+  /* Make avatar smaller */
+  .message .avatar, .chat-header #character-avatar {
+    width: 32px;
+    height: 32px;
+  }
+  
+  /* Simplified buttons in chat header */
+  .chat-actions {
+    gap: var(--spacing-xs);
+  }
+  
+  /* Modal adjustments - even more simplified */
+  .modal-content {
+    width: 100%;
+    height: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+  
+  .modal-body {
+    padding: var(--spacing-sm);
+  }
+  
+  /* Larger touch targets */
+  .btn, input, select {
+    min-height: 44px;
+  }
+  
+  .btn.icon-btn {
+    min-width: 44px;
+  }
+  
+  /* Simplify settings tabs */
+  .settings-tabs, .form-tabs {
+    flex-wrap: wrap;
+  }
+  
+  /* Emoji picker needs repositioning */
+  .emoji-picker-container {
+    position: fixed;
+    bottom: 70px;
+    left: 0;
+    right: 0;
+    width: 100%;
+  }
+}
+
+/* Mobile Portrait Orientation Adjustments */
+@media screen and (max-width: 480px) and (orientation: portrait) {
+  .chat-input-area {
+    max-height: 100px;
+  }
+  
+  #message-input {
+    max-height: 80px;
+  }
+}
+
+/* Mobile Landscape Orientation Adjustments */
+@media screen and (max-height: 480px) and (orientation: landscape) {
+  /* Handle very small height */
+  .chat-input-container {
+    padding: var(--spacing-xs);
+  }
+  
+  .mobile-nav-footer {
+    padding: var(--spacing-xs) var(--spacing-xs);
+  }
+  
+  .mobile-tab-btn i {
+    margin-bottom: 0;
+    font-size: 1.1rem;
+  }
+  
+  .mobile-tab-btn span {
+    display: none; /* Hide text, show only icons */
+  }
+}
+
+/* Handle notch/dynamic island on modern mobile devices */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .mobile-nav-footer {
+    padding-bottom: calc(var(--spacing-sm) + env(safe-area-inset-bottom));
+  }
+  
+  .chat-input-container {
+    padding-bottom: calc(var(--spacing-sm) + env(safe-area-inset-bottom));
+  }
+}
+
+/* Mobile Character Selector Overlay */
+.mobile-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--background-color);
+  z-index: 1000;
+  display: none;
+  flex-direction: column;
+  animation: mobile-slide-up 0.3s ease forwards;
+}
+
+.mobile-overlay.visible {
+  display: flex;
+}
+
+@keyframes mobile-slide-up {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.mobile-overlay-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.mobile-overlay-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--sidebar-bg);
+}
+
+.mobile-overlay-header h2 {
+  font-size: var(--font-lg);
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.close-mobile-overlay-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--text-light);
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-character-list-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-sm);
+}
+
+.mobile-character-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.mobile-character-card {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+  min-height: 80px;
+}
+
+.mobile-character-card:active {
+  transform: scale(0.98);
+}
+
+.mobile-character-card.active {
+  border-color: var(--primary-color);
+  background-color: var(--active-bg);
+}
+
+.mobile-character-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-right: var(--spacing-md);
+  border: 1px solid var(--border-color);
+}
+
+.mobile-character-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mobile-character-info {
+  flex: 1;
+}
+
+.mobile-character-name {
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: var(--spacing-xs);
+}
+
+.mobile-character-description {
+  font-size: var(--font-sm);
+  color: var(--text-light);
+}
+
+.mobile-character-card i {
+  color: var(--text-light);
+  font-size: 1.5rem;
+  margin-left: var(--spacing-sm);
+}
+
+.mobile-empty-list {
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: var(--text-light);
+}
+
+.mobile-overlay-footer {
+  padding: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+  background-color: var(--sidebar-bg);
+}
+
+.mobile-overlay-footer .btn {
+  width: 100%;
+  padding: var(--spacing-md);
+}
+
+/* Fix for body when overlay is open to prevent scrolling */
+body.mobile-overlay-open {
+  overflow: hidden;
+}

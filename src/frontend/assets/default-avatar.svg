@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="248" fill="#7c3aed" stroke="#9d6aea" stroke-width="16"/>
+  
+  <!-- Simple avatar silhouette -->
+  <path d="M256 120C207.4 120 168 159.4 168 208C168 247.9 195.7 281.3 233 290.3C189 301.1 155.9 335.6 144 379.2C142.6 384.3 146.5 389.3 151.8 389.3H360.2C365.5 389.3 369.4 384.3 368 379.2C356.1 335.6 323 301.1 279 290.3C316.3 281.3 344 247.9 344 208C344 159.4 304.6 120 256 120Z" fill="white"/>
+</svg>

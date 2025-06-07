@@ -1,0 +1,127 @@
+/* Theme styles for the immersive roleplay chat application */
+
+/* Base Variable Definitions - Shared Across Themes */
+:root {
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px var(--shadow-color, rgba(0, 0, 0, 0.05));
+  --shadow-md: 0 4px 6px var(--shadow-color, rgba(0, 0, 0, 0.1));
+  --shadow-lg: 0 10px 15px var(--shadow-color, rgba(0, 0, 0, 0.1));
+  --shadow-xl: 0 20px 25px var(--shadow-color, rgba(0, 0, 0, 0.15));
+  
+  /* Animation & Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s ease;
+  --transition-slow: 0.35s ease;
+  --animation-duration-fast: 0.2s;
+  --animation-duration-normal: 0.4s;
+  --animation-timing-function: cubic-bezier(0.25, 0.8, 0.25, 1); /* Ease Out Quad */
+
+  /* Glassmorphism */
+  --blur-intensity: 10px;
+}
+
+/* Keyframes for Animations (Defined in main.css now) */
+/* @keyframes ... */
+
+/* --- Dark Theme (Default) --- */
+.theme-dark {
+  --primary-color: #8b5cf6; /* Adjusted Purple */
+  --primary-light: #a78bfa;
+  --primary-dark: #7c3aed;
+  --text-color: #e5e7eb; /* Lighter Gray */
+  --text-light: #9ca3af; /* Medium Gray */
+  --text-dark: #f9fafb; /* Near White */
+  --background-color: #111827; /* Dark Blue-Gray */
+  --sidebar-bg: rgba(31, 41, 55, 0.7); /* Semi-transparent Dark Gray */
+  --card-bg: rgba(55, 65, 81, 0.7); /* Semi-transparent Medium Gray */
+  --modal-bg: rgba(31, 41, 55, 0.85); /* More opaque for modals */
+  --input-bg: rgba(55, 65, 81, 0.8); /* Input background */
+  --border-color: rgba(75, 85, 99, 0.5); /* Semi-transparent border */
+  --hover-bg: rgba(75, 85, 99, 0.6);
+  --active-bg: rgba(99, 102, 241, 0.3); /* Indigo-like active state */
+  --user-message-bg: rgba(79, 70, 229, 0.8); /* Indigo */
+  --assistant-message-bg: rgba(55, 65, 81, 0.8); /* Gray */
+  --code-bg: rgba(17, 24, 39, 0.9); /* Darker for code blocks */
+  --error-color: #f87171; /* Lighter Red */
+  --success-color: #4ade80; /* Lighter Green */
+  --shadow-color: rgba(0, 0, 0, 0.3); /* Darker shadow for contrast */
+}
+
+/* --- Light Theme --- */
+.theme-light {
+  --primary-color: #7c3aed;
+  --primary-light: #9d6aea;
+  --primary-dark: #6026c0;
+  --text-color: #1f2937; /* Dark Gray */
+  --text-light: #6b7280; /* Medium Gray */
+  --text-dark: #111827; /* Near Black */
+  --background-color: #f9fafb; /* Very Light Gray */
+  --sidebar-bg: rgba(255, 255, 255, 0.7); /* Semi-transparent White */
+  --card-bg: rgba(255, 255, 255, 0.8); /* Semi-transparent White */
+  --modal-bg: rgba(243, 244, 246, 0.9); /* Slightly Opaque Light Gray */
+  --input-bg: rgba(229, 231, 235, 0.8); /* Light Gray Input */
+  --border-color: rgba(209, 213, 219, 0.7); /* Semi-transparent Light Border */
+  --hover-bg: rgba(229, 231, 235, 0.7);
+  --active-bg: rgba(224, 231, 255, 0.8); /* Light Indigo */
+  --user-message-bg: rgba(199, 210, 254, 0.9); /* Lighter Indigo */
+  --assistant-message-bg: rgba(229, 231, 235, 0.9); /* Light Gray */
+  --code-bg: rgba(243, 244, 246, 0.9); /* Very Light Gray for code */
+  --error-color: #ef4444; /* Standard Red */
+  --success-color: #22c55e; /* Standard Green */
+  --shadow-color: rgba(0, 0, 0, 0.1); /* Standard light shadow */
+}
+
+/* --- Purple Theme --- */
+.theme-purple {
+  --primary-color: #a855f7; /* Brighter Purple */
+  --primary-light: #c084fc;
+  --primary-dark: #9333ea;
+  --text-color: #e9d5ff; /* Light Lavender */
+  --text-light: #c4b5fd; /* Lavender */
+  --text-dark: #f5f3ff; /* Very Light Lavender */
+  --background-color: #2b1b3d; /* Deep Purple */
+  --sidebar-bg: rgba(59, 38, 84, 0.75); /* Semi-transparent Purple */
+  --card-bg: rgba(76, 50, 105, 0.75);
+  --modal-bg: rgba(59, 38, 84, 0.9);
+  --input-bg: rgba(76, 50, 105, 0.8);
+  --border-color: rgba(109, 40, 217, 0.5);
+  --hover-bg: rgba(91, 63, 128, 0.7);
+  --active-bg: rgba(129, 93, 173, 0.4);
+  --user-message-bg: rgba(126, 34, 206, 0.85); /* Purple */
+  --assistant-message-bg: rgba(76, 50, 105, 0.85);
+  --code-bg: rgba(43, 27, 61, 0.9);
+  --error-color: #fca5a5; /* Light Red */
+  --success-color: #86efac; /* Light Green */
+  --shadow-color: rgba(0, 0, 0, 0.35);
+}
+
+/* --- Bubble Styles --- */
+.bubble-rounded .message-bubble {
+  border-radius: var(--radius-lg);
+}
+
+.bubble-angular .message-bubble {
+  border-radius: var(--radius-sm);
+}
+
+/* Apply default bubble style */
+body:not([class*="bubble-"]) {
+  --bubble-radius: var(--radius-lg);
+}
+.bubble-rounded {
+  --bubble-radius: var(--radius-lg);
+}
+.bubble-angular {
+  --bubble-radius: var(--radius-sm);
+}
+
+.message-bubble {
+  border-radius: var(--bubble-radius);
+}
