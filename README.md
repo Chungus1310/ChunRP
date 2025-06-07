@@ -54,12 +54,12 @@ ChunRP is an **immersive local roleplay chatbot** that brings your AI characters
 | Provider | Models Available | Free Tier | Features |
 |----------|-----------------|-----------|----------|
 | **Gemini** | Gemini 2.5 Pro, 2.0 Flash, Thinking models | ✅ | Advanced reasoning, multimodal |
-| **OpenRouter** | 10+ models including DeepSeek R1, QWQ 32B | ✅ | Community models, competitive pricing |
-| **DeepSeek/Chutes** | DeepSeek R1, V3, ArliAI models | ✅ | Reasoning models, fast inference |
+| **OpenRouter (Recommended)** | 10+ models including DeepSeek R1, QWQ 32B | ✅ | Community models, competitive pricing |
+| **Chutes (Recommended)** | DeepSeek R1, V3, ArliAI models | ✅ | Reasoning models, fast inference |
 | **NVIDIA** | Llama variants, Nemotron, QWQ | ✅ | High-performance inference |
 | **Hugging Face** | Llama 3.3, Mixtral, Dolphin models | ✅ | Open source models |
 | **Cohere** | Command R+, Command R7B | ✅ | Enterprise-grade models |
-| **Mistral** | Mistral Large, Small, Nemo | ❌ | French AI excellence |
+| **Mistral** | Mistral Large, Small, Nemo | ✅ | French AI excellence |
 | **Requesty** | Various community models | ✅ | Alternative access |
 
 </details>
