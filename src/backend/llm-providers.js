@@ -639,7 +639,10 @@ const modelConfigurations = {
   ],
   mistral: [
     { id: "mistral-large-latest", name: "Mistral Large" },
+    { id: "mistral-medium-latest", name: "Mistral Medium" },
     { id: "mistral-small-latest", name: "Mistral Small" },
+    { id: "magistral-medium-latest", name: "Magistral Medium" },
+    { id: "magistral-small-latest", name: "Magistral Small" },
     { id: "open-mistral-nemo", name: "Open Mistral Nemo" }
   ],
   cohere: [
@@ -669,6 +672,7 @@ const modelConfigurations = {
     { id: "01-ai/yi-large", name: "Yi Large" },
     { id: "mistralai/mixtral-8x22b-instruct-v0.1", name: "Mixtral 8x22B Instruct v0.1" },
     { id: "deepseek-ai/deepseek-r1", name: "DeepSeek R1" },
+    { id: "deepseek-ai/deepseek-r1-0528", name: "DeepSeek R1 (0528)" },
     { id: "qwen/qwen3-235b-a22b", name: "Qwen3-235B-A22B" }
   ]
 };

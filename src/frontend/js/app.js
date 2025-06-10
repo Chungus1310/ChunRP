@@ -1145,7 +1145,10 @@ function populateModelOptions(selectedProvider) {
     ],
     mistral: [
       { value: 'mistral-large-latest', name: 'Mistral Large' },
+      { value: 'mistral-medium-latest', name: 'Mistral Medium' },
       { value: 'mistral-small-latest', name: 'Mistral Small' },
+      { value: 'magistral-medium-latest', name: 'Magistral Medium' },
+      { value: 'magistral-small-latest', name: 'Magistral Small' },
       { value: 'open-mistral-nemo', name: 'Open Mistral Nemo' }
     ],
     huggingface: [
@@ -1184,6 +1187,7 @@ function populateModelOptions(selectedProvider) {
       { value: '01-ai/yi-large', name: 'Yi Large' },
       { value: 'mistralai/mixtral-8x22b-instruct-v0.1', name: 'Mixtral 8x22B Instruct v0.1' },
       { value: 'deepseek-ai/deepseek-r1', name: 'DeepSeek R1' },
+      { value: 'deepseek-ai/deepseek-r1-0528', name: 'DeepSeek R1 (0528)' },
       { value: 'qwen/qwen3-235b-a22b', name: 'Qwen3-235B-A22B' }
     ]
   };
