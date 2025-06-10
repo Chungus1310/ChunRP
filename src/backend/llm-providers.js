@@ -647,10 +647,11 @@ const modelConfigurations = {
     { id: "command-r7b-12-2024", name: "Command R7B 12-2024", free: true },
     { id: "command-r-plus-08-2024", name: "Command R Plus 08-2024", free: true },
     { id: "command-r-08-2024", name: "Command R 08-2024", free: true },
-    { id: "command-nightly", name: "Command Nightly", free: true }
-  ],    chutes: [
+    { id: "command-nightly", name: "Command Nightly", free: true }  ],    
+  chutes: [
     { id: "deepseek-ai/DeepSeek-R1", name: "DeepSeek R1" },
     { id: "deepseek-ai/DeepSeek-R1-0528", name: "DeepSeek R1 (0528)" },
+    { id: "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B", name: "DeepSeek R1 Qwen3 8B" },
     { id: "deepseek-ai/DeepSeek-V3-0324", name: "DeepSeek V3 (0324)" },
     { id: "ArliAI/QwQ-32B-ArliAI-RpR-v1", name: "ArliAI QwQ 32B RPR v1" },
     { id: "microsoft/MAI-DS-R1-FP8", name: "Microsoft MAI-DS R1 FP8" },

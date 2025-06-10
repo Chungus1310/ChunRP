@@ -1,105 +1,325 @@
-/* Theme styles for the immersive roleplay chat application */
+/* Enhanced Theme System with Modern Variables */
 
 /* Base Variable Definitions - Shared Across Themes */
 :root {
-  /* Border Radius */
-  --radius-sm: 4px;
-  --radius-md: 8px;
+  /* Modern Border Radius System */
+  --radius-xs: 2px;
+  --radius-sm: 6px;
+  --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 24px;
+  --radius-2xl: 32px;
   --radius-full: 9999px;
   
-  /* Shadows */
-  --shadow-sm: 0 1px 2px var(--shadow-color, rgba(0, 0, 0, 0.05));
-  --shadow-md: 0 4px 6px var(--shadow-color, rgba(0, 0, 0, 0.1));
-  --shadow-lg: 0 10px 15px var(--shadow-color, rgba(0, 0, 0, 0.1));
-  --shadow-xl: 0 20px 25px var(--shadow-color, rgba(0, 0, 0, 0.15));
+  /* Enhanced Shadow System */
+  --shadow-soft: 0 2px 8px var(--shadow-color, rgba(0, 0, 0, 0.08)), 0 4px 24px var(--shadow-color, rgba(0, 0, 0, 0.04));
+  --shadow-medium: 0 4px 16px var(--shadow-color, rgba(0, 0, 0, 0.12)), 0 8px 32px var(--shadow-color, rgba(0, 0, 0, 0.08));
+  --shadow-strong: 0 8px 32px var(--shadow-color, rgba(0, 0, 0, 0.16)), 0 16px 64px var(--shadow-color, rgba(0, 0, 0, 0.12));
+  --shadow-glow: 0 0 0 1px rgba(var(--primary-rgb), 0.1), 0 4px 16px rgba(var(--primary-rgb), 0.2);
   
-  /* Animation & Transitions */
-  --transition-fast: 0.15s ease;
-  --transition-normal: 0.25s ease;
-  --transition-slow: 0.35s ease;
+  /* Modern Animation & Transitions */
+  --ease-out-cubic: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  
+  --transition-micro: 0.1s var(--ease-out-cubic);
+  --transition-fast: 0.2s var(--ease-out-cubic);
+  --transition-normal: 0.3s var(--ease-out-cubic);
+  --transition-slow: 0.5s var(--ease-out-cubic);
+  --transition-bounce: 0.6s var(--ease-bounce);
+  --transition-spring: 0.4s var(--spring);
+  
   --animation-duration-fast: 0.2s;
   --animation-duration-normal: 0.4s;
-  --animation-timing-function: cubic-bezier(0.25, 0.8, 0.25, 1); /* Ease Out Quad */
+  --animation-timing-function: var(--ease-out-cubic);
 
-  /* Glassmorphism */
-  --blur-intensity: 10px;
+  /* Modern Glassmorphism */
+  --blur-backdrop: 20px;
+  --blur-glass: 12px;
+  --blur-intensity: var(--blur-glass); /* Legacy compatibility */
 }
 
 /* Keyframes for Animations (Defined in main.css now) */
 /* @keyframes ... */
 
-/* --- Dark Theme (Default) --- */
+/* --- Enhanced Dark Theme (Default) --- */
 .theme-dark {
-  --primary-color: #8b5cf6; /* Adjusted Purple */
+  --primary-color: #8b5cf6;
   --primary-light: #a78bfa;
   --primary-dark: #7c3aed;
-  --text-color: #e5e7eb; /* Lighter Gray */
-  --text-light: #9ca3af; /* Medium Gray */
-  --text-dark: #f9fafb; /* Near White */
-  --background-color: #111827; /* Dark Blue-Gray */
-  --sidebar-bg: rgba(31, 41, 55, 0.7); /* Semi-transparent Dark Gray */
-  --card-bg: rgba(55, 65, 81, 0.7); /* Semi-transparent Medium Gray */
-  --modal-bg: rgba(31, 41, 55, 0.85); /* More opaque for modals */
-  --input-bg: rgba(55, 65, 81, 0.8); /* Input background */
-  --border-color: rgba(75, 85, 99, 0.5); /* Semi-transparent border */
-  --hover-bg: rgba(75, 85, 99, 0.6);
-  --active-bg: rgba(99, 102, 241, 0.3); /* Indigo-like active state */
-  --user-message-bg: rgba(79, 70, 229, 0.8); /* Indigo */
-  --assistant-message-bg: rgba(55, 65, 81, 0.8); /* Gray */
-  --code-bg: rgba(17, 24, 39, 0.9); /* Darker for code blocks */
-  --error-color: #f87171; /* Lighter Red */
-  --success-color: #4ade80; /* Lighter Green */
-  --shadow-color: rgba(0, 0, 0, 0.3); /* Darker shadow for contrast */
+  --primary-rgb: 139, 92, 246;
+  --primary-text: #ffffff;
+  --text-color: #e5e7eb;
+  --text-light: #9ca3af;
+  --text-dark: #f9fafb;
+  --background-color: #0f172a;
+  --sidebar-bg: rgba(15, 23, 42, 0.8);
+  --card-bg: rgba(30, 41, 59, 0.8);
+  --card-bg-rgb: 30, 41, 59;
+  --modal-bg: rgba(15, 23, 42, 0.95);
+  --input-bg: rgba(51, 65, 85, 0.8);
+  --border-color: rgba(71, 85, 105, 0.4);
+  --hover-bg: rgba(71, 85, 105, 0.6);
+  --active-bg: rgba(99, 102, 241, 0.2);
+  --user-message-bg: rgba(79, 70, 229, 0.9);
+  --assistant-message-bg: rgba(51, 65, 85, 0.9);
+  --code-bg: rgba(15, 23, 42, 0.95);
+  --error-color: #f87171;
+  --success-color: #4ade80;
+  --shadow-color: rgba(0, 0, 0, 0.4);
 }
 
-/* --- Light Theme --- */
+/* --- Enhanced Light Theme --- */
 .theme-light {
   --primary-color: #7c3aed;
   --primary-light: #9d6aea;
   --primary-dark: #6026c0;
-  --text-color: #1f2937; /* Dark Gray */
-  --text-light: #6b7280; /* Medium Gray */
-  --text-dark: #111827; /* Near Black */
-  --background-color: #f9fafb; /* Very Light Gray */
-  --sidebar-bg: rgba(255, 255, 255, 0.7); /* Semi-transparent White */
-  --card-bg: rgba(255, 255, 255, 0.8); /* Semi-transparent White */
-  --modal-bg: rgba(243, 244, 246, 0.9); /* Slightly Opaque Light Gray */
-  --input-bg: rgba(229, 231, 235, 0.8); /* Light Gray Input */
-  --border-color: rgba(209, 213, 219, 0.7); /* Semi-transparent Light Border */
-  --hover-bg: rgba(229, 231, 235, 0.7);
-  --active-bg: rgba(224, 231, 255, 0.8); /* Light Indigo */
-  --user-message-bg: rgba(199, 210, 254, 0.9); /* Lighter Indigo */
-  --assistant-message-bg: rgba(229, 231, 235, 0.9); /* Light Gray */
-  --code-bg: rgba(243, 244, 246, 0.9); /* Very Light Gray for code */
-  --error-color: #ef4444; /* Standard Red */
-  --success-color: #22c55e; /* Standard Green */
-  --shadow-color: rgba(0, 0, 0, 0.1); /* Standard light shadow */
+  --primary-rgb: 124, 58, 237;
+  --primary-text:rgb(14, 14, 14);
+  --text-color: #1f2937;
+  --text-light: #6b7280;
+  --text-dark: #111827;
+  --background-color: #ffffff;
+  --sidebar-bg: rgba(248, 250, 252, 0.8);
+  --card-bg: rgba(255, 255, 255, 0.9);
+  --card-bg-rgb: 255, 255, 255;
+  --modal-bg: rgba(248, 250, 252, 0.95);
+  --input-bg: rgba(241, 245, 249, 0.8);
+  --border-color: rgba(203, 213, 225, 0.6);
+  --hover-bg: rgba(241, 245, 249, 0.8);
+  --active-bg: rgba(224, 231, 255, 0.8);
+  --user-message-bg: rgba(199, 210, 254, 0.95);
+  --assistant-message-bg: rgba(241, 245, 249, 0.95);
+  --code-bg: rgba(248, 250, 252, 0.95);
+  --error-color: #ef4444;
+  --success-color: #22c55e;
+  --shadow-color: rgba(0, 0, 0, 0.08);
 }
 
-/* --- Purple Theme --- */
+/* --- Enhanced Purple Theme --- */
 .theme-purple {
-  --primary-color: #a855f7; /* Brighter Purple */
+  --primary-color: #a855f7;
   --primary-light: #c084fc;
   --primary-dark: #9333ea;
-  --text-color: #e9d5ff; /* Light Lavender */
-  --text-light: #c4b5fd; /* Lavender */
-  --text-dark: #f5f3ff; /* Very Light Lavender */
-  --background-color: #2b1b3d; /* Deep Purple */
-  --sidebar-bg: rgba(59, 38, 84, 0.75); /* Semi-transparent Purple */
-  --card-bg: rgba(76, 50, 105, 0.75);
-  --modal-bg: rgba(59, 38, 84, 0.9);
+  --primary-rgb: 168, 85, 247;
+  --primary-text: #ffffff;
+  --text-color: #e9d5ff;
+  --text-light: #c4b5fd;
+  --text-dark: #f5f3ff;
+  --background-color: #1e1b3a;
+  --sidebar-bg: rgba(30, 27, 58, 0.8);
+  --card-bg: rgba(59, 39, 108, 0.8);
+  --card-bg-rgb: 59, 39, 108;
+  --modal-bg: rgba(30, 27, 58, 0.95);
   --input-bg: rgba(76, 50, 105, 0.8);
-  --border-color: rgba(109, 40, 217, 0.5);
+  --border-color: rgba(109, 40, 217, 0.4);
   --hover-bg: rgba(91, 63, 128, 0.7);
-  --active-bg: rgba(129, 93, 173, 0.4);
-  --user-message-bg: rgba(126, 34, 206, 0.85); /* Purple */
-  --assistant-message-bg: rgba(76, 50, 105, 0.85);
-  --code-bg: rgba(43, 27, 61, 0.9);
-  --error-color: #fca5a5; /* Light Red */
-  --success-color: #86efac; /* Light Green */
-  --shadow-color: rgba(0, 0, 0, 0.35);
+  --active-bg: rgba(129, 93, 173, 0.3);
+  --user-message-bg: rgba(126, 34, 206, 0.9);
+  --assistant-message-bg: rgba(76, 50, 105, 0.9);
+  --code-bg: rgba(30, 27, 58, 0.95);
+  --error-color: #fca5a5;
+  --success-color: #86efac;
+  --shadow-color: rgba(0, 0, 0, 0.5);
+}
+
+/* --- Cyberpunk Theme --- */
+.theme-cyberpunk {
+  --primary-color: #00ffff;
+  --primary-light: #4dffff;
+  --primary-dark: #00cccc;
+  --primary-rgb: 0, 255, 255;
+  --primary-text:rgb(255, 255, 255);
+  --text-color: #00ff00;
+  --text-light: #66ff66;
+  --text-dark: #ffffff;
+  --background-color: #000814;
+  --sidebar-bg: rgba(1, 4, 20, 0.9);
+  --card-bg: rgba(15, 23, 42, 0.8);
+  --card-bg-rgb: 15, 23, 42;
+  --modal-bg: rgba(1, 4, 20, 0.95);
+  --input-bg: rgba(30, 41, 59, 0.8);
+  --border-color: rgba(0, 255, 255, 0.3);
+  --hover-bg: rgba(0, 255, 255, 0.1);
+  --active-bg: rgba(0, 255, 255, 0.2);
+  --user-message-bg: rgba(0, 255, 255, 0.2);
+  --assistant-message-bg: rgba(0, 255, 0, 0.1);
+  --code-bg: rgba(1, 4, 20, 0.95);
+  --error-color: #ff0080;
+  --success-color: #00ff00;
+  --shadow-color: rgba(0, 255, 255, 0.3);
+}
+
+/* --- Ocean Theme --- */
+.theme-ocean {
+  --primary-color: #0ea5e9;
+  --primary-light: #38bdf8;
+  --primary-dark: #0284c7;
+  --primary-rgb: 14, 165, 233;
+  --primary-text: #ffffff;
+  --text-color: #f1f5f9;
+  --text-light: #94a3b8;
+  --text-dark: #ffffff;
+  --background-color: #0f172a;
+  --sidebar-bg: rgba(2, 6, 23, 0.8);
+  --card-bg: rgba(15, 23, 42, 0.8);
+  --card-bg-rgb: 15, 23, 42;
+  --modal-bg: rgba(2, 6, 23, 0.95);
+  --input-bg: rgba(30, 41, 59, 0.8);
+  --border-color: rgba(14, 165, 233, 0.3);
+  --hover-bg: rgba(14, 165, 233, 0.1);
+  --active-bg: rgba(14, 165, 233, 0.2);
+  --user-message-bg: rgba(14, 165, 233, 0.3);
+  --assistant-message-bg: rgba(51, 65, 85, 0.8);
+  --code-bg: rgba(2, 6, 23, 0.95);
+  --error-color: #f87171;
+  --success-color: #34d399;
+  --shadow-color: rgba(14, 165, 233, 0.2);
+}
+
+/* --- Forest Theme --- */
+.theme-forest {
+  --primary-color: #22c55e;
+  --primary-light: #4ade80;
+  --primary-dark: #16a34a;
+  --primary-rgb: 34, 197, 94;
+  --primary-text: #ffffff;
+  --text-color: #f0fdf4;
+  --text-light: #bbf7d0;
+  --text-dark: #ffffff;
+  --background-color: #14532d;
+  --sidebar-bg: rgba(20, 83, 45, 0.8);
+  --card-bg: rgba(22, 101, 52, 0.8);
+  --card-bg-rgb: 22, 101, 52;
+  --modal-bg: rgba(20, 83, 45, 0.95);
+  --input-bg: rgba(34, 197, 94, 0.1);
+  --border-color: rgba(34, 197, 94, 0.3);
+  --hover-bg: rgba(34, 197, 94, 0.1);
+  --active-bg: rgba(34, 197, 94, 0.2);
+  --user-message-bg: rgba(34, 197, 94, 0.3);
+  --assistant-message-bg: rgba(22, 101, 52, 0.8);
+  --code-bg: rgba(20, 83, 45, 0.95);
+  --error-color: #f87171;
+  --success-color: #4ade80;
+  --shadow-color: rgba(34, 197, 94, 0.2);
+}
+
+/* --- Sunset Theme --- */
+.theme-sunset {
+  --primary-color: #f97316;
+  --primary-light: #fb923c;
+  --primary-dark: #ea580c;
+  --primary-rgb: 249, 115, 22;
+  --primary-text: #ffffff;
+  --text-color: #fff7ed;
+  --text-light: #fed7aa;
+  --text-dark: #ffffff;
+  --background-color: #7c2d12;
+  --sidebar-bg: rgba(124, 45, 18, 0.8);
+  --card-bg: rgba(154, 52, 18, 0.8);
+  --card-bg-rgb: 154, 52, 18;
+  --modal-bg: rgba(124, 45, 18, 0.95);
+  --input-bg: rgba(249, 115, 22, 0.1);
+  --border-color: rgba(249, 115, 22, 0.3);
+  --hover-bg: rgba(249, 115, 22, 0.1);
+  --active-bg: rgba(249, 115, 22, 0.2);
+  --user-message-bg: rgba(249, 115, 22, 0.3);
+  --assistant-message-bg: rgba(154, 52, 18, 0.8);
+  --code-bg: rgba(124, 45, 18, 0.95);
+  --error-color: #f87171;
+  --success-color: #4ade80;
+  --shadow-color: rgba(249, 115, 22, 0.3);
+}
+
+/* --- Rose Theme --- */
+.theme-rose {
+  --primary-color: #e11d48;
+  --primary-light: #f43f5e;
+  --primary-dark: #be123c;
+  --primary-rgb: 225, 29, 72;
+  --primary-text: #ffffff;
+  --text-color: #fff1f2;
+  --text-light: #fecdd3;
+  --text-dark: #ffffff;
+  --background-color: #4c0519;
+  --sidebar-bg: rgba(76, 5, 25, 0.8);
+  --card-bg: rgba(136, 19, 55, 0.8);
+  --card-bg-rgb: 136, 19, 55;
+  --modal-bg: rgba(76, 5, 25, 0.95);
+  --input-bg: rgba(225, 29, 72, 0.1);
+  --border-color: rgba(225, 29, 72, 0.3);
+  --hover-bg: rgba(225, 29, 72, 0.1);
+  --active-bg: rgba(225, 29, 72, 0.2);
+  --user-message-bg: rgba(225, 29, 72, 0.3);
+  --assistant-message-bg: rgba(136, 19, 55, 0.8);
+  --code-bg: rgba(76, 5, 25, 0.95);
+  --error-color: #f87171;
+  --success-color: #4ade80;
+  --shadow-color: rgba(225, 29, 72, 0.3);
+}
+
+/* --- Minimal Light Theme --- */
+.theme-minimal-light {
+  --primary-color: #374151;
+  --primary-light: #6b7280;
+  --primary-dark: #1f2937;
+  --primary-rgb: 55, 65, 81;
+  --primary-text:rgb(0, 0, 0);
+  --text-color: #374151;
+  --text-light: #6b7280;
+  --text-dark: #111827;
+  --background-color: #ffffff;
+  --sidebar-bg: rgba(249, 250, 251, 0.8);
+  --card-bg: rgba(255, 255, 255, 0.9);
+  --card-bg-rgb: 255, 255, 255;
+  --modal-bg: rgba(249, 250, 251, 0.95);
+  --input-bg: rgba(243, 244, 246, 0.8);
+  --border-color: rgba(229, 231, 235, 0.8);
+  --hover-bg: rgba(243, 244, 246, 0.8);
+  --active-bg: rgba(229, 231, 235, 0.8);
+  --user-message-bg: rgba(243, 244, 246, 0.95);
+  --assistant-message-bg: rgba(249, 250, 251, 0.95);
+  --code-bg: rgba(243, 244, 246, 0.95);
+  --error-color: #ef4444;
+  --success-color: #22c55e;
+  --shadow-color: rgba(0, 0, 0, 0.05);
+}
+
+/* --- High Contrast Theme --- */
+.theme-high-contrast {
+  --primary-color: #ffffff;
+  --primary-light: #ffffff;
+  --primary-dark: #e5e5e5;
+  --primary-rgb: 255, 255, 255;
+  --primary-text:rgb(255, 255, 255);
+  --text-color: #ffffff;
+  --text-light: #cccccc;
+  --text-dark: #ffffff;
+  --background-color: #000000;
+  --sidebar-bg: rgba(0, 0, 0, 0.9);
+  --card-bg: rgba(51, 51, 51, 0.9);
+  --card-bg-rgb: 51, 51, 51;
+  --modal-bg: rgba(0, 0, 0, 0.95);
+  --input-bg: rgba(51, 51, 51, 0.8);
+  --border-color: rgba(255, 255, 255, 0.5);
+  --hover-bg: rgba(255, 255, 255, 0.1);
+  --active-bg: rgba(255, 255, 255, 0.2);
+  --user-message-bg: rgba(255, 255, 255, 0.9);
+  --assistant-message-bg: rgba(51, 51, 51, 0.9);
+  --code-bg: rgba(0, 0, 0, 0.95);
+  --error-color: #ff6b6b;
+  --success-color: #51cf66;
+  --shadow-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Text color adjustments for high contrast theme */
+.theme-high-contrast .message.user .message-bubble {
+  color: #000000;
+}
+
+.theme-high-contrast .message.assistant .message-bubble {
+  color: #ffffff;
 }
 
 /* --- Bubble Styles --- */

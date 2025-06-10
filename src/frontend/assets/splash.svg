@@ -1,16 +1,93 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg width="1024" height="1024" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background -->
-  <rect width="512" height="512" fill="#2d1b69"/>
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#1e1b3a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#e9d5ff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#c4b5fd;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="bubbleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a78bfa;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#c084fc;stop-opacity:1" />
+    </linearGradient>
+    <filter id="textGlow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge> 
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="bubbleGlow">
+      <feGaussianBlur stdDeviation="6" result="coloredBlur"/>
+      <feMerge> 
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
   
-  <!-- App name -->
-  <text x="256" y="440" font-family="Arial" font-size="72" font-weight="bold" fill="white" text-anchor="middle">ChunRP</text>
+  <!-- Modern gradient background -->
+  <rect width="512" height="512" fill="url(#bgGradient)"/>
   
-  <!-- Stylized chat icon -->
-  <path d="M384 144H128C114.7 144 104 154.7 104 168V312C104 325.3 114.7 336 128 336H211.2L240 384L268.8 336H384C397.3 336 408 325.3 408 312V168C408 154.7 397.3 144 384 144Z" fill="#9d6aea" stroke="white" stroke-width="12"/>
+  <!-- Floating accent elements -->
+  <circle cx="80" cy="100" r="3" fill="rgba(255,255,255,0.2)" opacity="0.8">
+    <animate attributeName="opacity" values="0.3;0.8;0.3" dur="3s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="420" cy="150" r="2" fill="rgba(168,85,247,0.4)" opacity="0.6">
+    <animate attributeName="opacity" values="0.2;0.6;0.2" dur="4s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="450" cy="350" r="4" fill="rgba(255,255,255,0.3)" opacity="0.7">
+    <animate attributeName="opacity" values="0.4;0.7;0.4" dur="5s" repeatCount="indefinite"/>
+  </circle>
   
-  <!-- Decorative elements -->
-  <circle cx="200" cy="240" r="24" fill="white"/>
-  <circle cx="312" cy="240" r="24" fill="white"/>
-  <path d="M242 284C242 284 255 308 270 308C285 308 298 284 298 284" stroke="white" stroke-width="12" stroke-linecap="round"/>
+  <!-- Enhanced stylized chat bubble -->
+  <g filter="url(#bubbleGlow)" transform="translate(0,-20)">
+    <path d="M380 140H132C116.5 140 104 152.5 104 168V308C104 323.5 116.5 336 132 336H210.5L244 388L277.5 336H380C395.5 336 408 323.5 408 308V168C408 152.5 395.5 140 380 140Z" 
+          fill="url(#bubbleGradient)" 
+          stroke="rgba(255,255,255,0.4)" 
+          stroke-width="4"/>
+  </g>
+  
+  <!-- Modern character features -->
+  <g opacity="0.95" transform="translate(0,-20)">
+    <!-- Eyes with modern styling -->
+    <ellipse cx="196" cy="230" rx="18" ry="22" fill="white" opacity="0.95"/>
+    <ellipse cx="316" cy="230" rx="18" ry="22" fill="white" opacity="0.95"/>
+    <circle cx="196" cy="232" r="8" fill="#7c3aed"/>
+    <circle cx="316" cy="232" r="8" fill="#7c3aed"/>
+    <circle cx="198" cy="229" r="3" fill="white" opacity="0.9"/>
+    <circle cx="318" cy="229" r="3" fill="white" opacity="0.9"/>
+    
+    <!-- Smile -->
+    <path d="M230 280C235 295 250 305 256 305C262 305 277 295 282 280" 
+          stroke="white" 
+          stroke-width="8" 
+          stroke-linecap="round" 
+          fill="none" 
+          opacity="0.9"/>
+  </g>
+  
+  <!-- Modern app name with gradient and glow -->
+  <text x="256" y="460" 
+        font-family="system-ui, -apple-system, sans-serif" 
+        font-size="68" 
+        font-weight="800" 
+        fill="url(#textGradient)" 
+        text-anchor="middle" 
+        filter="url(#textGlow)"
+        letter-spacing="-2px">ChunRP</text>
+        
+  <!-- Subtitle -->
+  <text x="256" y="490" 
+        font-family="system-ui, -apple-system, sans-serif" 
+        font-size="16" 
+        font-weight="400" 
+        fill="rgba(255,255,255,0.7)" 
+        text-anchor="middle"
+        letter-spacing="1px">IMMERSIVE ROLEPLAY</text>
 </svg>

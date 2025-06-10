@@ -1,13 +1,59 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background -->
-  <rect width="512" height="512" rx="64" fill="#2d1b69"/>
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7c3aed;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#8b5cf6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="bubbleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a78bfa;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#c084fc;stop-opacity:1" />
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge> 
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="3" stdDeviation="6" flood-opacity="0.25"/>
+    </filter>
+  </defs>
   
-  <!-- Chat bubble design -->
-  <path d="M384 144H128C114.7 144 104 154.7 104 168V312C104 325.3 114.7 336 128 336H211.2L240 384L268.8 336H384C397.3 336 408 325.3 408 312V168C408 154.7 397.3 144 384 144Z" fill="#9d6aea" stroke="white" stroke-width="8"/>
+  <!-- Background with modern styling -->
+  <rect width="512" height="512" rx="96" fill="url(#bgGradient)" filter="url(#shadow)"/>
   
-  <!-- Subtle inner pattern -->
-  <path d="M224 208C224 221.3 213.3 232 200 232C186.7 232 176 221.3 176 208C176 194.7 186.7 184 200 184C213.3 184 224 194.7 224 208Z" fill="white"/>
-  <path d="M336 208C336 221.3 325.3 232 312 232C298.7 232 288 221.3 288 208C288 194.7 298.7 184 312 184C325.3 184 336 194.7 336 208Z" fill="white"/>
-  <path d="M242 264C242 264 255 288 270 288C285 288 298 264 298 264" stroke="white" stroke-width="8" stroke-linecap="round"/>
+  <!-- Modern chat bubble design -->
+  <g filter="url(#glow)">
+    <path d="M380 140H132C116.5 140 104 152.5 104 168V308C104 323.5 116.5 336 132 336H210.5L244 388L277.5 336H380C395.5 336 408 323.5 408 308V168C408 152.5 395.5 140 380 140Z" 
+          fill="url(#bubbleGradient)" 
+          stroke="white" 
+          stroke-width="2" 
+          stroke-opacity="0.4"/>
+  </g>
+  
+  <!-- Enhanced eye design -->
+  <g opacity="0.95">
+    <ellipse cx="196" cy="220" rx="18" ry="22" fill="white"/>
+    <ellipse cx="316" cy="220" rx="18" ry="22" fill="white"/>
+    <circle cx="196" cy="222" r="8" fill="#7c3aed"/>
+    <circle cx="316" cy="222" r="8" fill="#7c3aed"/>
+    <circle cx="198" cy="219" r="3" fill="white" opacity="0.8"/>
+    <circle cx="318" cy="219" r="3" fill="white" opacity="0.8"/>
+  </g>
+  
+  <!-- Modern smile -->
+  <path d="M230 270C235 285 250 295 256 295C262 295 277 285 282 270" 
+        stroke="white" 
+        stroke-width="6" 
+        stroke-linecap="round" 
+        fill="none" 
+        opacity="0.9"/>
+        
+  <!-- Subtle accent elements -->
+  <circle cx="140" cy="180" r="4" fill="white" opacity="0.4"/>
+  <circle cx="360" cy="200" r="3" fill="white" opacity="0.3"/>
+  <circle cx="380" cy="280" r="2" fill="white" opacity="0.5"/>
 </svg>

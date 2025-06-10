@@ -1162,10 +1162,11 @@ function populateModelOptions(selectedProvider) {
       { value: 'command-r7b-12-2024', name: 'Command R7B 12-2024' },
       { value: 'command-r-plus-08-2024', name: 'Command R Plus 08-2024' },
       { value: 'command-r-08-2024', name: 'Command R 08-2024' },
-      { value: 'command-nightly', name: 'Command Nightly' }    ],    
+      { value: 'command-nightly', name: 'Command Nightly' }    ],      
     chutes: [
       { value: 'deepseek-ai/DeepSeek-R1', name: 'DeepSeek R1' },
       { value: 'deepseek-ai/DeepSeek-R1-0528', name: 'DeepSeek R1 (0528)' },
+      { value: 'deepseek-ai/DeepSeek-R1-0528-Qwen3-8B', name: 'DeepSeek R1 Qwen3 8B' },
       { value: 'deepseek-ai/DeepSeek-V3-0324', name: 'DeepSeek V3 (0324)' },
       { value: 'ArliAI/QwQ-32B-ArliAI-RpR-v1', name: 'ArliAI QwQ 32B RPR v1' },
       { value: 'microsoft/MAI-DS-R1-FP8', name: 'Microsoft MAI-DS R1 FP8' },
@@ -1357,15 +1358,22 @@ function showSettingsModal() {
             <small>Information about yourself that characters should know</small>
           </div>
         </div>
-        
-        <div id="appearance-tab" class="tab-content">
+          <div id="appearance-tab" class="tab-content">
           <div class="form-group">
-            <label>Theme</label>
-            <div class="theme-options">
-              <button class="theme-btn ${state.settings.theme === 'light' ? 'active' : ''}" data-theme="light">Light</button>
-              <button class="theme-btn ${state.settings.theme === 'dark' ? 'active' : ''}" data-theme="dark">Dark</button>
-              <button class="theme-btn ${state.settings.theme === 'purple' ? 'active' : ''}" data-theme="purple">Purple</button>
-            </div>
+            <label for="theme-select">Theme</label>
+            <select id="theme-select" class="theme-select">
+              <option value="dark" ${state.settings.theme === 'dark' ? 'selected' : ''}>Dark</option>
+              <option value="light" ${state.settings.theme === 'light' ? 'selected' : ''}>Light</option>
+              <option value="purple" ${state.settings.theme === 'purple' ? 'selected' : ''}>Purple</option>
+              <option value="cyberpunk" ${state.settings.theme === 'cyberpunk' ? 'selected' : ''}>Cyberpunk</option>
+              <option value="ocean" ${state.settings.theme === 'ocean' ? 'selected' : ''}>Ocean</option>
+              <option value="forest" ${state.settings.theme === 'forest' ? 'selected' : ''}>Forest</option>
+              <option value="sunset" ${state.settings.theme === 'sunset' ? 'selected' : ''}>Sunset</option>
+              <option value="rose" ${state.settings.theme === 'rose' ? 'selected' : ''}>Rose</option>
+              <option value="minimal-light" ${state.settings.theme === 'minimal-light' ? 'selected' : ''}>Minimal Light</option>
+              <option value="high-contrast" ${state.settings.theme === 'high-contrast' ? 'selected' : ''}>High Contrast</option>
+            </select>
+            <small>Choose a theme that matches your style and preferences</small>
           </div>
           
           <div class="form-group">
@@ -1374,6 +1382,7 @@ function showSettingsModal() {
               <button class="bubble-btn ${state.settings.bubbleStyle === 'rounded' ? 'active' : ''}" data-style="rounded">Rounded</button>
               <button class="bubble-btn ${state.settings.bubbleStyle === 'angular' ? 'active' : ''}" data-style="angular">Angular</button>
             </div>
+            <small>Choose how message bubbles should look</small>
           </div>
         </div>
         
@@ -1612,15 +1621,14 @@ function attachSettingsModalEvents() {
     apiKeyInput.type = isPassword ? 'text' : 'password';
     showHideBtn.textContent = isPassword ? 'Hide' : 'Show';
   });
-  
-  // Theme selection
-  const themeBtns = dom.settingsModal.querySelectorAll('.theme-btn');
-  themeBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      themeBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+    // Theme selection dropdown
+  const themeSelect = dom.settingsModal.querySelector('#theme-select');
+  if (themeSelect) {
+    themeSelect.addEventListener('change', () => {
+      const selectedTheme = themeSelect.value;
+      applyTheme(selectedTheme);
     });
-  });
+  }
   
   // Bubble style selection
   const bubbleBtns = dom.settingsModal.querySelectorAll('.bubble-btn');
@@ -1662,10 +1670,9 @@ async function saveSettingsFromForm() {
   const queryEmbeddingMethod = document.getElementById('query-embedding-method').value;
   const analysisProvider = document.getElementById('analysis-provider').value;
   const analysisModel = document.getElementById('analysis-model').value.trim();
-
-  // Get selected theme
-  const selectedThemeBtn = document.querySelector('.theme-btn.active');
-  const theme = selectedThemeBtn.dataset.theme;
+  // Get selected theme from dropdown
+  const themeSelect = document.getElementById('theme-select');
+  const theme = themeSelect ? themeSelect.value : 'dark';
 
   // Get selected bubble style
   const selectedBubbleBtn = document.querySelector('.bubble-btn.active');

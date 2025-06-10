@@ -1,62 +1,14 @@
-/* Edit Mode: Make edit box wider and more usable on mobile */
-@media screen and (max-width: 1024px) {
-  .edit-textarea {
-    min-width: 0;
-    width: 98vw;
-    max-width: 98vw;
-    min-height: 70px;
-    font-size: 1rem;
-    padding: 10px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border-color);
-    background: var(--input-bg);
-    color: var(--text-color);
-    resize: vertical;
-    box-sizing: border-box;
-    margin-bottom: 8px;
-    transition: border-color 0.2s, box-shadow 0.2s;
-  }
-  .edit-actions {
-    flex-direction: row;
-    gap: 8px;
-    justify-content: flex-end;
-  }
-}
+/* Enhanced Mobile Responsive Styles for ChunRP */
 
-@media screen and (max-width: 480px) {
-  .edit-textarea {
-    min-width: 0;
-    width: 99vw;
-    max-width: 99vw;
-    min-height: 60px;
-    font-size: 1rem;
-    padding: 10px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border-color);
-    background: var(--input-bg);
-    color: var(--text-color);
-    resize: vertical;
-    box-sizing: border-box;
-    margin-bottom: 8px;
-    transition: border-color 0.2s, box-shadow 0.2s;
-  }
-  .edit-actions {
-    flex-direction: row;
-    gap: 8px;
-    justify-content: flex-end;
-  }
-}
-/* Mobile responsive styles for ChunRP */
-
-/* Default variables specifically for mobile adjustments */
+/* Modern Mobile Variables */
 :root {
-  /* Mobile-specific sizing */
-  --mobile-sidebar-width: 280px;
-  --mobile-header-height: 60px;
-  --mobile-footer-height: 60px;
+  --mobile-sidebar-width: 320px;
+  --mobile-header-height: 70px;
+  --mobile-footer-height: 70px;
+  --mobile-transition: 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-/* Default state for mobile elements (hidden on desktop) */
+/* Hide mobile elements by default */
 #mobile-menu-toggle {
   display: none;
 }
@@ -65,39 +17,80 @@
   display: none;
 }
 
-/* Make mobile elements visible at appropriate breakpoints in the media queries below */
-
-/* Base Mobile Styles - Applied at 1024px and below */
+/* Enhanced Edit Mode for Mobile */
 @media screen and (max-width: 1024px) {
-  /* Reduce spacing slightly */
-  .sidebar {
-    width: 260px; /* Slightly smaller sidebar */
+  .edit-textarea {
+    min-width: 0;
+    width: 96%;
+    max-width: 96%;
+    min-height: 80px;
+    font-size: 1rem;
+    padding: var(--spacing-md);
+    border-radius: var(--radius-lg);
+    border: 2px solid var(--border-color);
+    background: var(--input-bg);
+    color: var(--text-color);
+    resize: vertical;
+    box-sizing: border-box;
+    margin-bottom: var(--spacing-md);
+    transition: all var(--transition-fast);
+    backdrop-filter: blur(var(--blur-glass));
+    box-shadow: var(--shadow-soft);
   }
   
-  /* Adjust message bubbles to take more width */
+  .edit-textarea:focus {
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-glow);
+  }
+  
+  .edit-actions {
+    flex-direction: row;
+    gap: var(--spacing-md);
+    justify-content: flex-end;
+  }
+  
+  /* Adjust sidebar width for larger tablets */
+  .sidebar {
+    width: 280px;
+  }
+  
+  /* Make messages slightly wider */
   .message {
     max-width: 85%;
   }
 }
 
-/* Tablet Styles - Applied at 768px and below */
+@media screen and (max-width: 480px) {
+  .edit-textarea {
+    width: 98%;
+    max-width: 98%;
+    min-height: 70px;
+    padding: var(--spacing-sm);
+    font-size: 0.95rem;
+  }
+}
+
+/* Enhanced Tablet Styles - Applied at 768px and below */
 @media screen and (max-width: 768px) {
-  /* App Layout Changes */
+  /* Modern App Layout for Tablets */
   .app-container {
     flex-direction: column;
     height: 100vh;
   }
   
-  /* Sidebar becomes fixed height at top */
+  /* Enhanced Mobile Sidebar */
   .sidebar {
     width: 100%;
     height: var(--mobile-header-height);
     flex-direction: row;
     align-items: center;
-    padding: var(--spacing-xs) var(--spacing-md);
+    padding: var(--spacing-md) var(--spacing-lg);
     overflow: hidden;
     position: relative;
     z-index: 30;
+    transition: all var(--mobile-transition);
+    backdrop-filter: blur(var(--blur-backdrop));
+    border-bottom: 1px solid var(--border-color);
   }
   
   .sidebar.expanded {
@@ -105,57 +98,75 @@
     overflow-y: auto;
     flex-direction: column;
     align-items: stretch;
+    padding: var(--spacing-lg);
+    box-shadow: var(--shadow-strong);
   }
   
-  /* Hide most sidebar elements by default */
-  .sidebar-section, .sidebar-footer {
+  /* Hide sections by default on mobile */
+  .sidebar-section, 
+  .sidebar-footer {
     display: none;
   }
   
-  /* Show all elements when sidebar is expanded */
+  /* Show all elements when expanded */
   .sidebar.expanded .sidebar-section,
   .sidebar.expanded .sidebar-footer {
     display: flex;
     flex-direction: column;
     width: 100%;
+    opacity: 0;
+    animation: fadeIn 0.3s ease 0.1s forwards;
   }
   
-  /* Modify header for mobile */
+  /* Enhanced Mobile Header */
   .sidebar-header {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     width: 100%;
     padding: 0;
     margin: 0;
     border: none;
   }
   
-  /* Mobile toggle button */
+  /* Modern Mobile Toggle Button */
   #mobile-menu-toggle {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    width: 48px;
+    height: 48px;
     background: transparent;
     border: none;
     color: var(--text-color);
     font-size: 1.5rem;
     cursor: pointer;
+    border-radius: var(--radius-lg);
+    transition: all var(--transition-fast);
   }
-    /* Main content needs to adjust for header */
+  
+  #mobile-menu-toggle:hover {
+    background: var(--hover-bg);
+    transform: scale(1.05);
+  }
+  
+  /* Main content adjustments */
   .main-content {
     height: calc(100vh - var(--mobile-header-height));
+    display: flex;
+    flex-direction: column;
   }
 
-  /* Chat container adjustments to remove the gap */
+  /* Enhanced Chat Header */
   .chat-header {
     position: sticky;
     top: 0;
     z-index: 20;
+    backdrop-filter: blur(var(--blur-backdrop));
+    padding: var(--spacing-md) var(--spacing-lg);
   }
   
-  /* Messages take more width on mobile */
+  /* Better message spacing on tablets */
   .message {
     max-width: 90%;
   }
