@@ -1913,3 +1913,14 @@ select:focus-visible {
   box-shadow: var(--shadow-glow);
 }
 
+/* Utility classes for responsive design */
+.desktop-only {
+  display: inline;
+}
+
+@media screen and (max-width: 768px) {
+  .desktop-only {
+    display: none !important;
+  }
+}
+

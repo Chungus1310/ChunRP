@@ -3,7 +3,78 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize mobile character selector
     initMobileCharacterSelector();
+    
+    // Initialize mobile input behaviors
+    initMobileInputBehaviors();
 });
+
+// Initialize mobile-specific input behaviors
+function initMobileInputBehaviors() {
+    const messageInput = document.getElementById('message-input');
+    const mobileNavFooter = document.getElementById('mobile-nav-footer');
+    let isInputFocused = false;
+
+    if (messageInput && mobileNavFooter) {
+        // Handle input focus/blur for better mobile experience
+        messageInput.addEventListener('focus', () => {
+            isInputFocused = true;
+            // On small screens, hide the mobile nav to give more space
+            if (window.innerWidth <= 480) {
+                mobileNavFooter.classList.add('input-focused');
+            }
+            
+            // Auto-resize textarea on focus
+            autoResizeTextarea(messageInput);
+        });
+
+        messageInput.addEventListener('blur', () => {
+            isInputFocused = false;
+            // Show mobile nav again
+            setTimeout(() => {
+                if (!isInputFocused) {
+                    mobileNavFooter.classList.remove('input-focused');
+                }
+            }, 100);
+        });
+
+        // Auto-resize textarea as user types
+        messageInput.addEventListener('input', () => {
+            autoResizeTextarea(messageInput);
+        });
+
+        // Handle viewport height changes (mobile keyboard)
+        let initialViewportHeight = window.innerHeight;
+        window.addEventListener('resize', () => {
+            if (window.innerWidth <= 768) {
+                const currentHeight = window.innerHeight;
+                const heightDiff = initialViewportHeight - currentHeight;
+                
+                // If keyboard is likely open (significant height reduction)
+                if (heightDiff > 150 && isInputFocused) {
+                    mobileNavFooter.classList.add('input-focused');
+                } else if (heightDiff < 100) {
+                    mobileNavFooter.classList.remove('input-focused');
+                    initialViewportHeight = currentHeight;
+                }
+            }
+        });
+    }
+}
+
+// Auto-resize textarea to fit content
+function autoResizeTextarea(textarea) {
+    if (!textarea) return;
+    
+    // Reset height to auto to get proper scrollHeight
+    textarea.style.height = 'auto';
+    
+    // Set height based on content, with min/max constraints
+    const minHeight = window.innerWidth <= 480 ? 40 : 44;
+    const maxHeight = window.innerWidth <= 480 ? 70 : 80;
+    
+    const newHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
+    textarea.style.height = newHeight + 'px';
+}
 
 // Create and initialize the mobile character selector overlay
 function initMobileCharacterSelector() {

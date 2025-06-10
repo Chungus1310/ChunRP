@@ -72,6 +72,22 @@
 
 /* Enhanced Tablet Styles - Applied at 768px and below */
 @media screen and (max-width: 768px) {
+  /* Minimal effects for better mobile performance */
+  * {
+    backdrop-filter: none !important;
+    box-shadow: var(--shadow-soft) !important;
+  }
+
+  .chat-input-container::before,
+  .sidebar::before {
+    display: none !important;
+  }
+
+  /* Reduce animations and transitions for smoother experience */
+  .message, .btn, .chat-input-area {
+    transition: all 0.2s ease !important;
+  }
+
   /* Modern App Layout for Tablets */
   .app-container {
     flex-direction: column;
@@ -170,14 +186,28 @@
   .message {
     max-width: 90%;
   }
-  
-  /* Chat container adjustments */
+    /* Chat container adjustments */
   .chat-container {
-    height: calc(100% - var(--mobile-header-height) - var(--mobile-footer-height));
+    height: calc(100% - var(--mobile-header-height));
   }
+  
   /* Ensure chat messages are not hidden behind input/footer */
   .chat-messages {
-    padding-bottom: calc(var(--mobile-footer-height) * 2 + 24px) !important;
+    padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+  }
+
+  /* Improve message spacing and text wrapping */
+  .message {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+
+  .message-content {
+    max-width: 100%;
+    overflow-wrap: break-word;
   }
   
   /* Position the new mobile footer menu */
@@ -195,7 +225,6 @@
     justify-content: space-around;
     pointer-events: auto;
   }
-
   /* Make chat input fixed above the footer on mobile */
   .chat-input-container {
     position: fixed;
@@ -205,7 +234,64 @@
     z-index: 30;
     background-color: var(--sidebar-bg);
     border-top: 1px solid var(--border-color);
-    padding: var(--spacing-xs) var(--spacing-sm);
+    padding: var(--spacing-sm);
+    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Optimize chat input area for mobile */
+  .chat-input-area {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    align-items: stretch;
+    min-height: 60px;
+    max-height: 120px;
+  }
+
+  /* Make textarea take full width on mobile */
+  #message-input {
+    width: 100%;
+    min-height: 44px;
+    max-height: 80px;
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-md);
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    font-size: 16px; /* Prevent zoom on iOS */
+    line-height: 1.4;
+    resize: none;
+    overflow-y: auto;
+    word-wrap: break-word;
+    box-sizing: border-box;
+  }
+
+  #message-input:focus {
+    border-color: var(--primary-color);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
+  }
+
+  /* Position action buttons below input on mobile */
+  .message-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0;
+    gap: var(--spacing-sm);
+  }
+
+  /* Group secondary actions */
+  .message-actions .action-group {
+    display: flex;
+    gap: var(--spacing-xs);
+  }
+
+  /* Make send button more prominent on mobile */
+  #send-message-btn {
+    min-width: 60px;
+    height: 44px;
+    border-radius: var(--radius-lg);
+    font-size: 1.1rem;
   }
 
   /* When input is focused, hide the mobile nav footer for more space */
@@ -265,6 +351,11 @@
 
 /* Mobile Styles - Applied at 480px and below */
 @media screen and (max-width: 480px) {
+  /* Hide desktop-only elements */
+  .desktop-only {
+    display: none;
+  }
+
   /* Further reduce padding and margins */
   .chat-header, .chat-input-container {
     padding: var(--spacing-xs);
@@ -272,6 +363,7 @@
   
   .chat-messages {
     padding: var(--spacing-sm);
+    padding-bottom: calc(140px + env(safe-area-inset-bottom)) !important;
   }
   
   /* Messages take full width on small phones */
@@ -288,6 +380,37 @@
   /* Simplified buttons in chat header */
   .chat-actions {
     gap: var(--spacing-xs);
+  }
+
+  /* Compact chat input for small screens */
+  .chat-input-area {
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs);
+  }
+
+  #message-input {
+    min-height: 40px;
+    max-height: 70px;
+    font-size: 16px;
+  }
+
+  /* Smaller action buttons */
+  .message-actions .btn.icon-btn {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+  }
+
+  #send-message-btn {
+    min-width: 50px;
+    height: 40px;
+    padding: 0 var(--spacing-sm);
+  }
+
+  /* Auto-hide mobile nav when input is focused */
+  .mobile-nav-footer.input-focused {
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
   }
   
   /* Modal adjustments - even more simplified */
@@ -315,15 +438,25 @@
   .settings-tabs, .form-tabs {
     flex-wrap: wrap;
   }
-  
-  /* Emoji picker needs repositioning */
+    /* Emoji picker needs repositioning */
   .emoji-picker-container {
     position: fixed;
-    bottom: 70px;
-    left: 0;
-    right: 0;
-    width: 100%;
+    bottom: 120px;
+    left: var(--spacing-sm);
+    right: var(--spacing-sm);
+    width: auto;
+    max-height: 250px;
+    z-index: 40;
   }
+
+  /* Better emoji picker on mobile */
+  emoji-picker {
+    width: 100% !important;
+    height: 250px !important;
+    border-radius: var(--radius-lg) !important;
+    box-shadow: var(--shadow-strong) !important;
+  }
+}
 }
 
 /* Mobile Portrait Orientation Adjustments */
