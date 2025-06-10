@@ -340,7 +340,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**Made with ❤️ for the AI roleplay community**
+**Made with ❤️ By Chun, for the AI roleplay community**
 
 [⭐ Star this repo](https://github.com/chungus1310/ChunRP) | [🐛 Report Issues](https://github.com/chungus1310/ChunRP/issues) | [💬 Discussions](https://github.com/chungus1310/ChunRP/discussions)
 
