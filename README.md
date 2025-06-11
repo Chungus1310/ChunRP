@@ -74,18 +74,18 @@ ChunRP is an **immersive local roleplay chatbot** that brings your AI characters
 
 | Provider | Featured Models | Free Tier | Reasoning Models |
 |----------|-----------------|-----------|------------------|
-| **🔥 Chutes** | DeepSeek R1, R1-0528, ArliAI QwQ 32B, TNG Chimera | ❌ | ✅ DeepSeek R1 family |
-| **🔥 Gemini** | Gemini 2.5 Pro, 2.0 Flash, **2.0 Flash Thinking** | ✅ | ✅ Thinking models |
+| **🔥 Chutes** | DeepSeek R1, R1-0528, ArliAI QwQ 32B, TNG Chimera | ✅ | ✅ DeepSeek R1 family |
+| **🔥 Gemini** | Gemini 2.5 Pro, 2.0 Flash, **2.5 Flash Thinking** | ✅ | ✅ Thinking models |
 | **🔥 OpenRouter** | DeepSeek R1, QWQ 32B RPR, MAI-DS R1, Gemini 2.0 Flash | ✅ | ✅ Multiple reasoning models |
 | **NVIDIA** | Llama 4 Scout/Maverick, QWQ 32B, Nemotron family | ✅ | ✅ QWQ 32B |
 | **Hugging Face** | Llama 3.3 70B, DeepSeek V3, Dolphin Mixtral family | ✅ | ❌ |
 | **Cohere** | Command R+ 03-2025, Command R7B, Command R Plus | ✅ | ❌ |
-| **Mistral** | Mistral Large, Magistral Medium/Small, Open Nemo | ❌ | ❌ |
-| **Requesty** | Gemini 2.0 models, Gemma 3 27B, L3-8B Lunaris | ✅ | ✅ Gemini Thinking |
+| **Mistral** | Mistral Large, Magistral Medium/Small, Open Nemo | ✅ | ✅ Magistral family |
+| **Requesty (No longer free)** | Gemini 2.0 models, Gemma 3 27B, L3-8B Lunaris | ❌ | ✅ Gemini Thinking |
 
 **🔥 Popular Reasoning Models:**
 - DeepSeek R1 & R1-0528 (Chutes, OpenRouter, NVIDIA)
-- Gemini 2.0 Flash Thinking (Gemini, Requesty)
+- Gemini 2.5 Flash Thinking (Gemini, Requesty)
 - QWQ 32B (NVIDIA, OpenRouter)
 - ArliAI QwQ 32B RPR (Chutes, OpenRouter)
 - MAI-DS R1 (OpenRouter)
