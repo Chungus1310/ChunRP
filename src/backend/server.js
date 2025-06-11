@@ -1,4 +1,3 @@
-
 // (Moved below app definition)
 // Main Express server setup
 import express from 'express';
@@ -11,6 +10,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 // console.log("__dirname:", __dirname);
 // console.log("Frontend path:", path.join(__dirname, '../frontend'));
+
+// Create global progress tracking store
+const progressStore = new Map();
 
 // Character stuff
 import { 
@@ -467,6 +469,70 @@ app.get('/api/memories/:characterName', async (req, res) => {
   } catch (err) {
     console.error(`Error in GET /api/memories/${req.params.characterName}:`, err);
     res.status(500).json({ error: 'Failed to retrieve memories.' });
+  }
+});
+
+// Recycle memories for a character
+app.post('/api/memories/:characterName/recycle', async (req, res) => {
+  try {
+    const characterName = req.params.characterName;
+    
+    // Check if character exists
+    const character = loadCharacter(characterName);
+    if (!character) {
+      return res.status(404).json({ error: 'Character not found.' });
+    }
+    
+    // Load chat history
+    const chatHistory = loadChatHistory(characterName);
+    if (!chatHistory || chatHistory.length === 0) {
+      return res.status(400).json({ error: 'No chat history available for memory recycling.' });
+    }
+    
+    // Load settings
+    const settings = loadSettings();
+      // Import memory functions
+    const { recycleCharacterMemories } = await import('./memory-system.js');
+    
+    // Create progress callback
+    const progressCallback = (progress) => {
+      progressStore.set(characterName, progress);
+    };
+    
+    // Start the recycling process
+    const result = await recycleCharacterMemories(characterName, chatHistory, character, settings, progressCallback);
+    
+    // Clear progress after completion
+    progressStore.delete(characterName);
+    
+    if (result.success) {
+      res.json({ 
+        success: true, 
+        memoriesCreated: result.memoriesCreated,
+        message: `Successfully recycled memories. Created ${result.memoriesCreated} new memories.`
+      });
+    } else {
+      res.status(500).json({ error: result.error || 'Failed to recycle memories.' });
+    }
+  } catch (error) {
+    console.error(`Error in POST /api/memories/${req.params.characterName}/recycle:`, error);
+    res.status(500).json({ error: 'Failed to recycle memories due to server error.' });  }
+});
+
+// Get recycling progress for a character
+app.get('/api/memories/:characterName/progress', (req, res) => {
+  try {
+    const characterName = req.params.characterName;
+    const progress = progressStore.get(characterName);
+    
+    if (progress) {
+      res.json(progress);
+    } else {
+      res.json({ step: 'idle', message: 'No active recycling process', current: 0, total: 0 });
+    }
+  } catch (error) {
+    console.error(`Error in GET /api/memories/${req.params.characterName}/progress:`, error);
+    res.status(500).json({ error: 'Failed to get recycling progress.' });
   }
 });
 

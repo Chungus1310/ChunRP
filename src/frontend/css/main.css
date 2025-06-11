@@ -1498,6 +1498,32 @@ textarea {
 .param-group input[type="range"] { width: auto; flex-grow: 1; vertical-align: middle; }
 .param-group span { display: inline-block; min-width: 30px; text-align: right; }
 
+/* Memory Reranking Settings */
+.memory-reranking {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+}
+
+.memory-reranking h3 {
+  margin-bottom: var(--spacing-md);
+  color: var(--text-color);
+  font-size: 1.1rem;
+}
+
+.memory-reranking .form-group label input[type="checkbox"] {
+  margin-right: var(--spacing-xs);
+}
+
+.memory-reranking small a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.memory-reranking small a:hover {
+  text-decoration: underline;
+}
+
 .theme-options, .bubble-options {
   display: flex;
   gap: var(--spacing-sm);

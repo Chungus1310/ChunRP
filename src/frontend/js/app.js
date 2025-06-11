@@ -53,11 +53,11 @@ const dom = {
   createCharacterBtn: document.getElementById('create-character-btn'),
   editCharacterBtn: document.getElementById('edit-character-btn'),
   clearChatBtn: document.getElementById('clear-chat-btn'),
-  settingsBtn: document.getElementById('settings-btn'),
-  // Add new elements
+  settingsBtn: document.getElementById('settings-btn'),  // Add new elements
   emojiBtn: document.getElementById('emoji-btn'),
   regenBtn: document.getElementById('regen-btn'),
   memoryViewBtn: document.getElementById('memory-view-btn'),
+  recycleMemoryBtn: document.getElementById('recycle-memory-btn'),
   memoryPanel: document.getElementById('memory-panel'),
   // Add mobile-specific elements
   mobileMenuToggle: document.getElementById('mobile-menu-toggle'),
@@ -1407,8 +1407,7 @@ function showSettingsModal() {
             <input type="number" id="history-message-count" min="5" max="600" value="${state.settings.memory?.historyMessageCount || 15}">
             <small>Number of past messages to include in each prompt</small>
           </div>
-          
-          <div class="memory-weights">
+            <div class="memory-weights">
             <h3>Memory Importance Weights</h3>
             <div class="param-group">
               <label>Recency</label>
@@ -1424,6 +1423,33 @@ function showSettingsModal() {
               <label>Decision Relevance</label>
               <input type="range" min="0" max="10" value="${state.settings.memory?.weights?.decisionRelevance || 6}" id="decision-weight">
               <span>${state.settings.memory?.weights?.decisionRelevance || 6}</span>
+            </div>
+          </div>
+          
+          <div class="memory-reranking">
+            <h3>Memory Reranking</h3>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="enable-reranking" ${state.settings.memory?.enableReranking !== false ? 'checked' : ''}>
+                Enable Memory Reranking
+              </label>
+              <small>Use AI reranking to improve memory relevance</small>
+            </div>
+            
+            <div class="form-group">
+              <label>Reranking Provider</label>
+              <select id="reranking-provider">
+                <option value="jina" ${(state.settings.memory?.rerankingProvider || 'jina') === 'jina' ? 'selected' : ''}>Jina AI</option>
+                <option value="cohere" ${state.settings.memory?.rerankingProvider === 'cohere' ? 'selected' : ''}>Cohere</option>
+                <option value="nvidia" ${state.settings.memory?.rerankingProvider === 'nvidia' ? 'selected' : ''}>NVIDIA</option>
+              </select>
+              <small>Primary reranking provider (with automatic fallback)</small>
+            </div>
+            
+            <div class="form-group">
+              <label>Jina API Key</label>
+              <input type="password" id="jina-api-key" value="${state.settings.apiKeys?.jina || ''}" placeholder="Enter your Jina API key">
+              <small>Get your free API key from <a href="https://jina.ai/" target="_blank">jina.ai</a></small>
             </div>
           </div>
         </div>
@@ -1663,10 +1689,14 @@ async function saveSettingsFromForm() {
   const userPersona = document.getElementById('user-persona').value.trim();
   const journalFrequency = parseInt(document.getElementById('journal-frequency').value);
   const memoryCount = parseInt(document.getElementById('memory-count').value);
-  const historyMessageCount = parseInt(document.getElementById('history-message-count').value);
-  const recencyWeight = parseInt(document.getElementById('recency-weight').value);
+  const historyMessageCount = parseInt(document.getElementById('history-message-count').value);  const recencyWeight = parseInt(document.getElementById('recency-weight').value);
   const emotionalWeight = parseInt(document.getElementById('emotional-weight').value);
   const decisionWeight = parseInt(document.getElementById('decision-weight').value);
+  
+  // Reranking settings
+  const enableReranking = document.getElementById('enable-reranking').checked;
+  const rerankingProvider = document.getElementById('reranking-provider').value;
+  const jinaApiKey = document.getElementById('jina-api-key').value.trim();
 
   // Embedding/analysis settings
   const embeddingProvider = document.getElementById('embedding-provider').value;
@@ -1684,9 +1714,13 @@ async function saveSettingsFromForm() {
 
   // Create settings object, preserving existing API keys
   const apiKeys = state.settings.apiKeys || {};
-
   // Update only the current provider's API key
   apiKeys[provider] = apiKey;
+  
+  // Update Jina API key if provided
+  if (jinaApiKey) {
+    apiKeys.jina = jinaApiKey;
+  }
 
   const settings = {
     ...state.settings,
@@ -1703,8 +1737,7 @@ async function saveSettingsFromForm() {
       persona: userPersona
     },
     theme,
-    bubbleStyle,
-    memory: {
+    bubbleStyle,    memory: {
       ...state.settings.memory,
      
       journalFrequency,
@@ -1715,6 +1748,8 @@ async function saveSettingsFromForm() {
       queryEmbeddingMethod,
       analysisProvider,
       analysisModel,
+      enableReranking,
+      rerankingProvider,
       weights: {
         recency: recencyWeight,
         emotionalSignificance: emotionalWeight,
@@ -1806,9 +1841,11 @@ function setupEventListeners() {
   
   // Regenerate button
   dom.regenBtn.addEventListener('click', regenerateResponse);
-  
-  // Memory view button
+    // Memory view button
   dom.memoryViewBtn.addEventListener('click', loadAndDisplayMemories);
+  
+  // Recycle memory button
+  dom.recycleMemoryBtn.addEventListener('click', recycleMemories);
   
   // Close memory panel when clicking outside
   document.addEventListener('click', (e) => {
@@ -2008,6 +2045,108 @@ async function regenerateResponse() {
     showErrorMessage('Failed to regenerate response.');
   } finally {
     state.isGenerating = false;
+  }
+}
+
+// Recycle memories for the active character
+async function recycleMemories() {
+  if (!state.activeCharacter || state.isGenerating) {
+    return;
+  }
+  
+  // Check if there's enough chat history
+  if (!state.chatHistory || state.chatHistory.length < 3) {
+    showErrorMessage('Not enough chat history to recycle memories. Need at least 3 messages.');
+    return;
+  }
+  
+  // Show confirmation dialog
+  const confirmed = confirm(
+    `This will clear all existing memories for ${state.activeCharacter.name} and recreate them from your chat history. This process may take several minutes. Continue?`
+  );
+  
+  if (!confirmed) {
+    return;
+  }
+  
+  try {
+    // Show progress toast
+    displayNotification('🔄 Starting memory recycling process...', 'info');
+    
+    // Disable the button during processing
+    dom.recycleMemoryBtn.disabled = true;
+    dom.recycleMemoryBtn.innerHTML = '<i class="ri-loader-line rotating"></i>';
+    
+    // Start polling for progress
+    const progressInterval = setInterval(async () => {
+      try {
+        const progressResponse = await fetch(`${API.MEMORIES}/${state.activeCharacter.name}/progress`);
+        const progress = await progressResponse.json();
+        
+        if (progress && progress.step !== 'idle') {
+          let message = '';
+          switch (progress.step) {
+            case 'clearing':
+              message = '🗑️ Clearing existing memories...';
+              break;
+            case 'cleared':
+              message = '✅ Existing memories cleared';
+              break;
+            case 'processing':
+              message = `🧠 ${progress.message || 'Processing memories'} (${progress.current}/${progress.total})`;
+              break;
+            case 'waiting':
+              message = `⏱️ ${progress.message || 'Waiting between memory creation'}`;
+              break;
+            case 'finalizing':
+              message = '🔧 Finalizing memory storage...';
+              break;
+            case 'completed':
+              message = '✅ Memory recycling completed!';
+              clearInterval(progressInterval);
+              break;
+          }
+          
+          if (message) {
+            displayNotification(message, 'info');
+          }
+        }
+      } catch (progressError) {
+        console.warn('Error fetching progress:', progressError);
+      }
+    }, 2000); // Poll every 2 seconds
+    
+    const response = await fetch(`${API.MEMORIES}/${state.activeCharacter.name}/recycle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    // Clear the progress polling
+    clearInterval(progressInterval);
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      displayNotification(
+        `✅ Memory recycling completed! Created ${data.memoriesCreated} new memories.`, 
+        'success'
+      );
+      
+      // Reload memories if memory panel is open
+      if (dom.memoryPanel.classList.contains('visible')) {
+        await loadAndDisplayMemories();
+      }
+    } else {
+      showErrorMessage(data.error || 'Failed to recycle memories.');
+    }
+    
+  } catch (error) {
+    console.error('Error recycling memories:', error);
+    showErrorMessage('Failed to recycle memories. Please try again.');
+  } finally {
+    // Re-enable the button
+    dom.recycleMemoryBtn.disabled = false;
+    dom.recycleMemoryBtn.innerHTML = '<i class="ri-recycle-line"></i>';
   }
 }
 

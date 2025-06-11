@@ -508,7 +508,7 @@ async function retrieveRelevantMemories(currentMessage, character, limit = 8, se
       if (llm) {
         const prompt = [{role: 'user', content: `Summarize the following recent conversation context in 1-2 sentences, focusing on what is most relevant for memory retrieval for the user's last message (\"${currentMessage}\"):\n${recentContext}` }];
         try {
-          const summary = await llm(prompt, { ...settings, model: analysisModel, temperature: 0.2 });
+          const summary = await llm(prompt, { ...settings, model: analysisModel, temperature: 0.1 });
           if (summary && typeof summary === 'string' && summary.length > 0) {
             queryText = summary;
           }
@@ -524,7 +524,7 @@ async function retrieveRelevantMemories(currentMessage, character, limit = 8, se
       if (llm) {
         const prompt = [{role: 'user', content: `Given the user's message: \"${currentMessage}\", and the character ${character.name}, write a brief, hypothetical journal entry summary that would be perfectly relevant to this message.`}];
         try {
-          const hydeSummary = await llm(prompt, { ...settings, model: analysisModel, temperature: 0.5 });
+          const hydeSummary = await llm(prompt, { ...settings, model: analysisModel, temperature: 0.1 });
           if (hydeSummary && typeof hydeSummary === 'string' && hydeSummary.length > 0) {
             queryText = hydeSummary;
           }
@@ -532,9 +532,7 @@ async function retrieveRelevantMemories(currentMessage, character, limit = 8, se
           console.warn('HyDE for query embedding failed, falling back to previous:', err.message || err);
         }
       }
-    }
-
-    // Option B: Averaging embeddings of last user and assistant message
+    }    // Option B: Averaging embeddings of last user and assistant message
     if (method === 'average' && chatHistory && chatHistory.length > 1) {
       const lastUser = [...chatHistory].reverse().find(m => m.role === 'user');
       const lastAssistant = [...chatHistory].reverse().find(m => m.role === 'assistant');
@@ -543,9 +541,18 @@ async function retrieveRelevantMemories(currentMessage, character, limit = 8, se
       if (lastAssistant) assistantEmb = await generateEmbedding(lastAssistant.content, settings);      if (userEmb && assistantEmb && userEmb.length === assistantEmb.length) {
         // Average the two vectors
         const avg = userEmb.map((v, i) => (v + assistantEmb[i]) / 2);
-        let memories = await _retrieveMemoriesWithEmbedding(avg, character, limit);
-        // Do not force include persona/firstMessage; only return what is relevant by similarity
-        return memories;
+        let memories = await _retrieveMemoriesWithEmbedding(avg, character, limit * 2); // Get more for reranking
+        
+        // Apply reranking if enabled
+        try {
+          const { rerankMemories } = await import('./reranking-system.js');
+          memories = await rerankMemories(currentMessage, memories, settings);
+        } catch (error) {
+          console.warn('Reranking failed, using original vector similarity order:', error.message);
+        }
+        
+        // Return top results after reranking
+        return memories.slice(0, limit);
       }
       // Fallback to plain if averaging fails
     }
@@ -557,9 +564,19 @@ async function retrieveRelevantMemories(currentMessage, character, limit = 8, se
     if (!queryEmbedding || !Array.isArray(queryEmbedding) || queryEmbedding.length !== expectedDimension) {
       console.error(`Failed to generate a valid query embedding for character ${character.name}. Expected dimension ${expectedDimension}, but got ${queryEmbedding?.length}. Query: "${queryText}"`);
       return [];    }
-    let memories = await _retrieveMemoriesWithEmbedding(queryEmbedding, character, limit);
-    // Do not force include persona/firstMessage; only return what is relevant by similarity
-    return memories;
+    
+    let memories = await _retrieveMemoriesWithEmbedding(queryEmbedding, character, limit * 2); // Get more for reranking
+    
+    // Apply reranking if enabled
+    try {
+      const { rerankMemories } = await import('./reranking-system.js');
+      memories = await rerankMemories(queryText, memories, settings);
+    } catch (error) {
+      console.warn('Reranking failed, using original vector similarity order:', error.message);
+    }
+    
+    // Return top results after reranking
+    return memories.slice(0, limit);
   } catch (error) {
     console.error(`Error retrieving memories for character ${character.name}:`, error);
     return [];
@@ -920,6 +937,133 @@ async function getLLMProviderFactory() {
 
 // --- LLM-based Memory Analysis --
 
+// Fallback function to extract analysis data from malformed responses
+function extractFallbackAnalysis(rawResponse) {
+  try {
+    const result = {
+      summary: "",
+      emotions: { positive: 0.5, negative: 0.3, neutral: 0.2 },
+      decisions: [],
+      topics: [],
+      importance: 5,
+      relationshipDelta: 0.0
+    };
+    
+    console.log("Attempting fallback extraction from response:", rawResponse.substring(0, 200) + "...");
+    
+    // Try to extract summary
+    const summaryMatch = rawResponse.match(/summary[^:]*:\s*["\']([^"']*)["\']?/i);
+    if (summaryMatch) {
+      result.summary = summaryMatch[1];
+    } else {
+      // Try alternate patterns
+      const altSummaryMatch = rawResponse.match(/\"summary\"\s*:\s*\"([^\"]*)\"/i);
+      if (altSummaryMatch) {
+        result.summary = altSummaryMatch[1];
+      } else {
+        // Use the first meaningful sentence as fallback (more flexible)
+        const sentences = rawResponse.split(/[.!?]+/);
+        const meaningfulSentence = sentences.find(s => 
+          s.trim().length > 20 && 
+          !s.includes('<') && 
+          !s.toLowerCase().includes('analyze') &&
+          !s.toLowerCase().includes('conversation')
+        );
+        if (meaningfulSentence) {
+          result.summary = meaningfulSentence.trim();
+        } else {
+          // Final fallback: create a generic summary from the conversation text
+          const lines = rawResponse.split('\n').filter(line => line.trim().length > 10);
+          if (lines.length > 0) {
+            result.summary = `Conversation analysis from ${lines.length} lines of dialogue`;
+          } else {
+            result.summary = "Character interaction and decision making";
+          }
+        }
+      }
+    }
+    
+    // Try to extract importance
+    const importanceMatch = rawResponse.match(/importance[^:]*:\s*(\d+)/i);
+    if (importanceMatch) {
+      result.importance = Math.min(10, Math.max(1, parseInt(importanceMatch[1])));
+    } else {
+      // Look for keywords that indicate importance
+      const importantKeywords = ['decisive', 'confronted', 'demanded', 'crucial', 'critical', 'vital'];
+      const keywordCount = importantKeywords.filter(keyword => 
+        rawResponse.toLowerCase().includes(keyword)
+      ).length;
+      result.importance = Math.min(10, Math.max(3, 5 + keywordCount));
+    }
+    
+    // Try to extract relationship delta
+    const relationshipMatch = rawResponse.match(/relationship[^:]*:\s*([+-]?\d*\.?\d+)/i);
+    if (relationshipMatch) {
+      result.relationshipDelta = Math.min(1, Math.max(-1, parseFloat(relationshipMatch[1])));
+    } else {
+      // Look for emotional indicators
+      const positiveWords = ['trust', 'love', 'support', 'help', 'together', 'bond'];
+      const negativeWords = ['anger', 'fear', 'conflict', 'threat', 'danger', 'hostile'];
+      const positiveCount = positiveWords.filter(word => rawResponse.toLowerCase().includes(word)).length;
+      const negativeCount = negativeWords.filter(word => rawResponse.toLowerCase().includes(word)).length;
+      
+      if (positiveCount > negativeCount) {
+        result.relationshipDelta = Math.min(0.5, positiveCount * 0.1);
+      } else if (negativeCount > positiveCount) {
+        result.relationshipDelta = Math.max(-0.5, -negativeCount * 0.1);
+      }
+    }
+    
+    // Extract decisions (look for decision patterns)
+    const decisionMatches = rawResponse.match(/"([^"]*(?:decision|chose|decided|confronted|demanded|stopped|rejected)[^"]*)"/gi);
+    if (decisionMatches && decisionMatches.length > 0) {
+      result.decisions = decisionMatches.map(d => d.replace(/"/g, '')).slice(0, 5);
+    } else {
+      // Fallback: look for action patterns in square brackets or quotes
+      const actionMatches = rawResponse.match(/\[([^\]]*)\]|"([^"]*(?:action|took|did)[^"]*)"/gi);
+      if (actionMatches) {
+        result.decisions = actionMatches.map(a => a.replace(/[\[\]"]/g, '')).slice(0, 3);
+      } else {
+        // Generate basic decisions from text content
+        const actionWords = ['confronted', 'decided', 'chose', 'demanded', 'refused', 'accepted'];
+        const foundActions = actionWords.filter(action => rawResponse.toLowerCase().includes(action));
+        if (foundActions.length > 0) {
+          result.decisions = foundActions.map(action => `Character ${action} something important`).slice(0, 3);
+        } else {
+          result.decisions = ['Made a significant choice during the conversation'];
+        }
+      }
+    }
+    
+    // Extract topics
+    const topicMatches = rawResponse.match(/"([^"]*(?:topic|theme|subject)[^"]*)"/gi);
+    if (topicMatches && topicMatches.length > 0) {
+      result.topics = topicMatches.map(t => t.replace(/"/g, '')).slice(0, 5);
+    } else {
+      // Fallback: look for common topic words
+      const commonTopics = ['safety', 'trust', 'power', 'identity', 'relationship', 'authority', 'fear', 'protection', 'emotion', 'conflict'];
+      const foundTopics = commonTopics.filter(topic => 
+        rawResponse.toLowerCase().includes(topic)
+      );
+      result.topics = foundTopics.length > 0 ? foundTopics.slice(0, 3) : ['conversation', 'interaction'];
+    }
+    
+    console.log("Fallback extraction result:", {
+      summaryLength: result.summary.length,
+      importance: result.importance,
+      relationshipDelta: result.relationshipDelta,
+      decisionsCount: result.decisions.length,
+      topicsCount: result.topics.length
+    });
+    
+    // Only return if we got at least a summary
+    return result.summary.length > 5 ? result : null;
+  } catch (error) {
+    console.error("Error in fallback analysis extraction:", error);
+    return null;
+  }
+}
+
 // Analyze a conversation chunk using LLM
 async function analyzeConversationChunk(messages, characterState, settings = {}) {
   // Cache the LLM provider factory import for use
@@ -932,39 +1076,49 @@ async function analyzeConversationChunk(messages, characterState, settings = {})
   
   // Always use the active provider and model for analysis (journal creation)
   const analysisProvider = settings.provider;
-  const analysisModel = settings.model;
-  
-  // Create analysis prompt with clear instructions for structured output
+  const analysisModel = settings.model;  // Create analysis prompt optimized for reasoning models
   const analysisPrompt = `
     Analyze the following conversation chunk involving ${characterState.name}. Focus specifically on decisive actions, strong opinions, and how the character drove the conversation.
     
-    Respond STRICTLY in JSON format with the following keys:
-    - "summary": A brief 1-2 sentence summary emphasizing decisive moments and authoritative actions.
-    - "emotions": An object with the character's emotions (e.g., {"positive": 0.7, "negative": 0.1, "neutral": 0.2})
-    - "decisions": An array of definitive stances, clear choices, or bold actions taken by the character (e.g., ["Confronted user about their behavior", "Declared intention to explore the forbidden area", "Rejected user's suggestion firmly"])
-    - "topics": An array of main topics discussed, especially those the character feels strongly about (e.g., ["Authority", "Boundaries", "Personal values"])
-    - "importance": A score from 1 (low) to 10 (high) indicating the memory's significance, with higher scores for assertive actions
-    - "relationshipDelta": Estimated change in sentiment towards the user (-1.0 to +1.0) based ONLY on this chunk
-    - "conversationDrivers": An array of authoritative statements, direct questions or challenges that moved the interaction forward
+    YOU MUST respond with a valid JSON object. Even if you want to think through the analysis, please ensure your response contains a JSON object in this exact format:
     
-    Rate the importance highest (8-10) when the character showed leadership, made unambiguous decisions, or took control of the conversation direction.
+    {
+      "summary": "A brief 1-2 sentence summary emphasizing decisive moments and authoritative actions",
+      "emotions": {"positive": 0.7, "negative": 0.1, "neutral": 0.2},
+      "decisions": ["Confronted user about their behavior", "Declared intention to explore forbidden area"],
+      "topics": ["Authority", "Boundaries", "Personal values"],
+      "importance": 8,
+      "relationshipDelta": 0.3,
+      "conversationDrivers": ["Direct questions that moved interaction forward"]
+    }
+    
+    CRITICAL REQUIREMENTS:
+    - Your response MUST contain the JSON object shown above
+    - Numbers must NOT have + signs (use 0.3, not +0.3)
+    - "importance" must be integer 1-10
+    - "relationshipDelta" must be decimal -1.0 to +1.0  
+    - All arrays must contain strings
+    - No trailing commas
+    - No comments in JSON
+    
+    Rate importance highest (8-10) when the character showed leadership, made unambiguous decisions, or took control of the conversation direction.
     
     Conversation Chunk:
     ---
     ${conversationText}
     ---
-    JSON Response:`;
+    
+    Remember: Your response must include the JSON object, even if you include thinking or explanations.`;
 
 
   // Configure analysis settings
   const analysisLlmSettings = {
     ...settings,
-    temperature: 0.3, // Lower temperature for factual analysis
+    temperature: 0.1, // Lower temperature for factual analysis
     model: analysisModel, // Use the active model
     apiKey: settings.apiKeys?.[analysisProvider]
   };
-  
-  try {
+    try {
     // Get the provider function and make the LLM call
     const provider = llmProviderFactory[analysisProvider];
     if (!provider) {
@@ -973,24 +1127,111 @@ async function analyzeConversationChunk(messages, characterState, settings = {})
     }
     
     const rawResponse = await provider([{ role: 'user', content: analysisPrompt }], analysisLlmSettings);
+      // Clean the response to handle edge cases from reasoning models
+    let cleanedResponse = rawResponse;
     
-    // Extract the JSON part of the response
-    // This helps handle cases where the LLM might add commentary outside the JSON
-    const jsonMatch = rawResponse.match(/(\{[\s\S]*\})/);
-    let analysisResult;
+    // Remove <think> blocks and similar unwanted content (common in reasoning models)
+    cleanedResponse = cleanedResponse.replace(/<think>[\s\S]*?<\/think>/gi, '');
+    cleanedResponse = cleanedResponse.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '');
+    cleanedResponse = cleanedResponse.replace(/```json\s*/gi, '');
+    cleanedResponse = cleanedResponse.replace(/```\s*/gi, '');
+      // Try to find the best JSON object for memory analysis
+    let bestJsonString = '';
     
-    if (jsonMatch && jsonMatch[0]) {
-      try {
-        analysisResult = JSON.parse(jsonMatch[0]);
-      } catch (parseError) {
-        console.error("Error parsing LLM analysis JSON:", parseError);
-        console.log("Raw response:", rawResponse);
+    // Look for complete JSON objects that contain memory analysis fields
+    // This regex properly handles nested objects
+    const jsonObjectRegex = /\{(?:[^{}]|{(?:[^{}]|{[^{}]*})*})*\}/g;
+    const potentialJsons = cleanedResponse.match(jsonObjectRegex);
+    
+    if (potentialJsons && potentialJsons.length > 0) {
+      // Find the JSON object with the most expected memory analysis fields
+      bestJsonString = potentialJsons.reduce((best, current) => {
+        const requiredFields = ['summary', 'emotions', 'decisions', 'topics', 'importance'];
+        const currentFieldCount = requiredFields.filter(field => current.includes(`"${field}"`)).length;
+        const bestFieldCount = requiredFields.filter(field => best.includes(`"${field}"`)).length;
+        
+        // Prefer JSON with more required fields, or the longer one if tied
+        if (currentFieldCount > bestFieldCount) return current;
+        if (currentFieldCount === bestFieldCount && current.length > best.length) return current;
+        return best;
+      }, '');
+    }
+    
+    // Final fallback: original approach (first { to last })
+    if (!bestJsonString) {
+      const firstBrace = cleanedResponse.indexOf('{');
+      const lastBrace = cleanedResponse.lastIndexOf('}');
+      
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        bestJsonString = cleanedResponse.substring(firstBrace, lastBrace + 1);
+      }
+    }
+      if (!bestJsonString) {      console.warn("No JSON structure found in LLM response. Raw response:");
+      console.log("=".repeat(80));
+      console.log(rawResponse);
+      console.log("=".repeat(80));
+      
+      // Try one more desperate attempt to find any JSON-like structure
+      const hasAnyCurlyBraces = cleanedResponse.includes('{') && cleanedResponse.includes('}');
+      if (hasAnyCurlyBraces) {
+        const firstBrace = cleanedResponse.indexOf('{');
+        const lastBrace = cleanedResponse.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          bestJsonString = cleanedResponse.substring(firstBrace, lastBrace + 1);
+          console.log("Found partial JSON structure, attempting to parse:", bestJsonString.substring(0, 100) + "...");
+        }
+      }
+      
+      if (!bestJsonString) {
+        // Try to use the fallback extraction on the raw response
+        const fallbackResult = extractFallbackAnalysis(rawResponse);
+        if (fallbackResult) {
+          console.log("No JSON found, but fallback extraction succeeded");
+          return fallbackResult;
+        }
+        
+        console.error("No JSON structure found and fallback extraction failed");
         return null;
       }
-    } else {
-      console.error("LLM analysis response did not contain valid JSON");
+    }// Extract and clean the JSON part of the response
+    let analysisResult;
+    
+    try {
+      let jsonString = bestJsonString.trim();
+      
+      // Fix common JSON syntax issues from reasoning models
+      // Fix unquoted positive numbers like +0.3 to 0.3
+      jsonString = jsonString.replace(/:\s*\+(\d+\.?\d*)/g, ': $1');
+      
+      // Fix trailing commas
+      jsonString = jsonString.replace(/,(\s*[}\]])/g, '$1');
+      
+      // Fix multiple consecutive commas
+      jsonString = jsonString.replace(/,+/g, ',');
+      
+      // Fix unquoted property names or values that sometimes occur
+      jsonString = jsonString.replace(/\[\s*([a-zA-Z][a-zA-Z0-9\s]*)\s*,/g, '["$1",');
+      jsonString = jsonString.replace(/\[\s*([a-zA-Z][a-zA-Z0-9\s]*)\s*\]/g, '["$1"]');
+      
+      // Try parsing the cleaned JSON
+      analysisResult = JSON.parse(jsonString);
+    } catch (parseError) {      console.error("Error parsing LLM analysis JSON:", parseError);
       console.log("Raw response:", rawResponse);
-      return null;
+      console.log("Best JSON string found:", bestJsonString);
+      
+      // Try one more fallback - attempt to extract a minimal valid structure
+      try {
+        const fallbackResult = extractFallbackAnalysis(rawResponse);
+        if (fallbackResult) {
+          console.log("Using fallback analysis extraction");
+          analysisResult = fallbackResult;
+        } else {
+          return null;
+        }
+      } catch (fallbackError) {
+        console.error("Fallback analysis extraction also failed:", fallbackError);
+        return null;
+      }
     }
     
     // Validate required fields
@@ -1045,6 +1286,114 @@ async function clearCharacterMemories(characterName) {
   }
 }
 
+// Recycle all memories for a character by clearing them and regenerating from chat history
+async function recycleCharacterMemories(characterName, chatHistory, character, settings = {}, progressCallback = null) {
+  try {
+    console.log(`Starting memory recycling for character: ${characterName}`);
+    
+    // Progress tracking
+    const reportProgress = (step, message, current = 0, total = 0) => {
+      if (progressCallback) {
+        progressCallback({ step, message, current, total, characterName });
+      }
+    };
+    
+    reportProgress('clearing', 'Clearing existing memories...', 0, 1);
+    
+    // Step 1: Clear all existing memories
+    const cleared = await clearCharacterMemories(characterName);
+    if (!cleared) {
+      return { success: false, error: 'Failed to clear existing memories' };
+    }
+    
+    console.log(`Cleared existing memories for ${characterName}`);
+    reportProgress('cleared', 'Existing memories cleared', 1, 1);
+    
+    // Step 2: Get memory frequency from settings
+    const frequency = settings.memory?.journalFrequency || 10;
+    
+    // Step 3: Filter out any system/assistant messages that are just first messages
+    const validMessages = chatHistory.filter(msg => {
+      // Keep all user messages and assistant messages that aren't just the character's first message
+      if (msg.role === 'user') return true;
+      if (msg.role === 'assistant') {
+        // Skip if it's exactly the same as the character's firstMessage
+        return msg.content !== character.firstMessage;
+      }
+      return false;
+    });    
+    console.log(`Processing ${validMessages.length} valid messages for memory creation`);
+    
+    // Step 4: Create memory chunks based on frequency
+    const chunks = [];
+    for (let i = 0; i < validMessages.length; i += frequency) {
+      const chunk = validMessages.slice(i, i + frequency);
+      if (chunk.length >= Math.min(3, frequency)) { // Need at least 3 messages or the frequency limit
+        chunks.push(chunk);
+      }
+    }
+    
+    console.log(`Created ${chunks.length} memory chunks to process`);
+    reportProgress('processing', 'Creating memories from chat history...', 0, chunks.length);
+      // Step 5: Process each chunk with delays
+    let memoriesCreated = 0;
+    const characterState = {
+      name: character.name,
+      relationships: { user: { sentiment: 0.0, status: 'neutral' } }
+    };
+    
+    console.log(`📝 Beginning memory creation process for ${characterName}...`);
+      for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      console.log(`🔄 Processing memory chunk ${i + 1}/${chunks.length} with ${chunk.length} messages`);
+      reportProgress('processing', `Creating memory ${i + 1} of ${chunks.length}...`, i, chunks.length);
+      
+      try {
+        // Create journal entry for this chunk
+        const result = await createJournalEntry(chunk, characterState, settings);
+        
+        if (result && result.journalEntry) {
+          memoriesCreated++;
+          console.log(`✅ Created memory ${memoriesCreated}: ${result.journalEntry.summary.substring(0, 100)}...`);
+          
+          // Update character state with new relationships
+          if (result.updatedRelationships) {
+            characterState.relationships = result.updatedRelationships;
+          }
+          
+          // Wait 6 seconds before creating the next memory (as requested)
+          if (i < chunks.length - 1) {
+            console.log('⏱️  Waiting 6 seconds before creating next memory...');
+            reportProgress('waiting', `Memory ${i + 1} created. Waiting before next...`, i + 1, chunks.length);
+            await new Promise(resolve => setTimeout(resolve, 6000));
+          }
+        } else {
+          console.warn(`⚠️  Failed to create memory for chunk ${i + 1}`);
+        }
+      } catch (error) {
+        console.error(`❌ Error creating memory for chunk ${i + 1}:`, error);
+        // Continue with next chunk instead of failing completely
+      }    }
+    
+    // Step 6: Store initial character memories (persona and first message) if they exist
+    reportProgress('finalizing', 'Storing character memories...', chunks.length, chunks.length);
+    await storeInitialCharacterMemories(character, settings);
+    
+    console.log(`Memory recycling completed for ${characterName}. Created ${memoriesCreated} memories.`);
+    reportProgress('completed', `Successfully created ${memoriesCreated} memories`, chunks.length, chunks.length);
+    
+    return { 
+      success: true, 
+      memoriesCreated,
+      chunksProcessed: chunks.length 
+    };
+    
+  } catch (error) {
+    console.error(`Error during memory recycling for ${characterName}:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
 export {
   createJournalEntry,
   retrieveRelevantMemories,
@@ -1054,5 +1403,6 @@ export {
   analyzeConversationChunk,
   estimateTokens,
   clearCharacterMemories,
-  storeInitialCharacterMemories
+  storeInitialCharacterMemories,
+  recycleCharacterMemories
 };
