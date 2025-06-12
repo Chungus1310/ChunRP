@@ -437,9 +437,7 @@ async function createJournalEntry(messages, characterState, settings = {}) {
     if (!embeddingVector || embeddingVector.length !== expectedDimension) {
         console.error(`Failed to generate valid embedding for summary (expected ${expectedDimension}, got ${embeddingVector?.length}). Skipping journal entry.`);
         return null;
-    }
-
-    const journalEntry = {
+    }    const journalEntry = {
       id: uuidv4(),
       timestamp: Date.now(),
       summary: analysisResult.summary,
@@ -448,6 +446,9 @@ async function createJournalEntry(messages, characterState, settings = {}) {
       relationships: updatedRelationships, // Store the updated state
       topics: analysisResult.topics, // Store array directly from analysis
       importance: (analysisResult.importance || 5) / 10.0, // Normalize importance (0.1-1.0)
+      conversationDrivers: analysisResult.conversationDrivers || [], // Store conversation drivers
+      participants: analysisResult.participants || [characterState.name, settings?.user?.name || 'User'], // Store all participants
+      plotElements: analysisResult.plotElements || [], // Store plot elements for better retrieval
       vector: embeddingVector,
       rawMessages: messages.slice() // Keep raw messages
     };
@@ -506,7 +507,7 @@ async function retrieveRelevantMemories(currentMessage, character, limit = 8, se
       const recentContext = recentTurns.map(m => `${m.role}: ${m.content}`).join('\n');
       const llm = llmProviderFactory[analysisProvider];
       if (llm) {
-        const prompt = [{role: 'user', content: `Summarize the following recent conversation context in 1-2 sentences, focusing on what is most relevant for memory retrieval for the user's last message (\"${currentMessage}\"):\n${recentContext}` }];
+        const prompt = [{role: 'user', content: `Summarize the following recent conversation context in 3-4 sentences, focusing on what is most relevant for memory retrieval for the user's last message (\"${currentMessage}\"):\n${recentContext}` }];
         try {
           const summary = await llm(prompt, { ...settings, model: analysisModel, temperature: 0.1 });
           if (summary && typeof summary === 'string' && summary.length > 0) {
@@ -860,9 +861,7 @@ function formatMemoriesForContext(memories, maxTokens) {
         memoryCount++;
       }
       break; // Stop if we exceed token limit
-    }
-
-    formattedMemories += memoryText;
+    }    formattedMemories += memoryText;
     currentTokenCount += memoryTokens;
     memoryCount++;
 
@@ -874,6 +873,28 @@ function formatMemoriesForContext(memories, maxTokens) {
       if (currentTokenCount + decisionsTokens <= maxTokens) {
         formattedMemories += decisionsText;
         currentTokenCount += decisionsTokens;
+      }
+    }
+
+    // Add participants information for multi-character scenes
+    if (memory.participants && memory.participants.length > 2) {
+      const participantsText = `  → Participants: ${memory.participants.join(", ")}\n`;
+      const participantsTokens = estimateTokens(participantsText);
+      
+      if (currentTokenCount + participantsTokens <= maxTokens) {
+        formattedMemories += participantsText;
+        currentTokenCount += participantsTokens;
+      }
+    }
+
+    // Add important plot elements if they exist
+    if (memory.plotElements && memory.plotElements.length > 0 && memory.importance > 0.6) {
+      const plotText = `  → Plot: ${memory.plotElements.slice(0, 2).join("; ")}\n`;
+      const plotTokens = estimateTokens(plotText);
+      
+      if (currentTokenCount + plotTokens <= maxTokens) {
+        formattedMemories += plotText;
+        currentTokenCount += plotTokens;
       }
     }
   }
@@ -946,7 +967,10 @@ function extractFallbackAnalysis(rawResponse) {
       decisions: [],
       topics: [],
       importance: 5,
-      relationshipDelta: 0.0
+      relationshipDelta: 0.0,
+      conversationDrivers: [],
+      participants: [],
+      plotElements: []
     };
     
     console.log("Attempting fallback extraction from response:", rawResponse.substring(0, 200) + "...");
@@ -975,9 +999,9 @@ function extractFallbackAnalysis(rawResponse) {
           // Final fallback: create a generic summary from the conversation text
           const lines = rawResponse.split('\n').filter(line => line.trim().length > 10);
           if (lines.length > 0) {
-            result.summary = `Conversation analysis from ${lines.length} lines of dialogue`;
+            result.summary = `Roleplay interaction involving multiple participants with ${lines.length} exchanges`;
           } else {
-            result.summary = "Character interaction and decision making";
+            result.summary = "Character interaction and decision making in roleplay scenario";
           }
         }
       }
@@ -989,7 +1013,7 @@ function extractFallbackAnalysis(rawResponse) {
       result.importance = Math.min(10, Math.max(1, parseInt(importanceMatch[1])));
     } else {
       // Look for keywords that indicate importance
-      const importantKeywords = ['decisive', 'confronted', 'demanded', 'crucial', 'critical', 'vital'];
+      const importantKeywords = ['decisive', 'confronted', 'demanded', 'crucial', 'critical', 'vital', 'revelation', 'plot', 'development'];
       const keywordCount = importantKeywords.filter(keyword => 
         rawResponse.toLowerCase().includes(keyword)
       ).length;
@@ -1002,8 +1026,8 @@ function extractFallbackAnalysis(rawResponse) {
       result.relationshipDelta = Math.min(1, Math.max(-1, parseFloat(relationshipMatch[1])));
     } else {
       // Look for emotional indicators
-      const positiveWords = ['trust', 'love', 'support', 'help', 'together', 'bond'];
-      const negativeWords = ['anger', 'fear', 'conflict', 'threat', 'danger', 'hostile'];
+      const positiveWords = ['trust', 'love', 'support', 'help', 'together', 'bond', 'closer', 'intimate'];
+      const negativeWords = ['anger', 'fear', 'conflict', 'threat', 'danger', 'hostile', 'distant', 'betrayal'];
       const positiveCount = positiveWords.filter(word => rawResponse.toLowerCase().includes(word)).length;
       const negativeCount = negativeWords.filter(word => rawResponse.toLowerCase().includes(word)).length;
       
@@ -1015,7 +1039,7 @@ function extractFallbackAnalysis(rawResponse) {
     }
     
     // Extract decisions (look for decision patterns)
-    const decisionMatches = rawResponse.match(/"([^"]*(?:decision|chose|decided|confronted|demanded|stopped|rejected)[^"]*)"/gi);
+    const decisionMatches = rawResponse.match(/"([^"]*(?:decision|chose|decided|confronted|demanded|stopped|rejected|accepted|revealed)[^"]*)"/gi);
     if (decisionMatches && decisionMatches.length > 0) {
       result.decisions = decisionMatches.map(d => d.replace(/"/g, '')).slice(0, 5);
     } else {
@@ -1025,12 +1049,12 @@ function extractFallbackAnalysis(rawResponse) {
         result.decisions = actionMatches.map(a => a.replace(/[\[\]"]/g, '')).slice(0, 3);
       } else {
         // Generate basic decisions from text content
-        const actionWords = ['confronted', 'decided', 'chose', 'demanded', 'refused', 'accepted'];
+        const actionWords = ['confronted', 'decided', 'chose', 'demanded', 'refused', 'accepted', 'revealed', 'explored'];
         const foundActions = actionWords.filter(action => rawResponse.toLowerCase().includes(action));
         if (foundActions.length > 0) {
-          result.decisions = foundActions.map(action => `Character ${action} something important`).slice(0, 3);
+          result.decisions = foundActions.map(action => `Character ${action} something significant`).slice(0, 3);
         } else {
-          result.decisions = ['Made a significant choice during the conversation'];
+          result.decisions = ['Made a significant choice during the roleplay'];
         }
       }
     }
@@ -1040,20 +1064,41 @@ function extractFallbackAnalysis(rawResponse) {
     if (topicMatches && topicMatches.length > 0) {
       result.topics = topicMatches.map(t => t.replace(/"/g, '')).slice(0, 5);
     } else {
-      // Fallback: look for common topic words
-      const commonTopics = ['safety', 'trust', 'power', 'identity', 'relationship', 'authority', 'fear', 'protection', 'emotion', 'conflict'];
+      // Fallback: look for common roleplay topic words
+      const commonTopics = ['safety', 'trust', 'power', 'identity', 'relationship', 'authority', 'fear', 'protection', 'emotion', 'conflict', 'romance', 'adventure', 'mystery', 'family', 'friendship'];
       const foundTopics = commonTopics.filter(topic => 
         rawResponse.toLowerCase().includes(topic)
       );
-      result.topics = foundTopics.length > 0 ? foundTopics.slice(0, 3) : ['conversation', 'interaction'];
+      result.topics = foundTopics.length > 0 ? foundTopics.slice(0, 4) : ['roleplay', 'interaction', 'character-development'];
     }
+    
+    // Extract conversation drivers (new field)
+    const driverKeywords = ['revelation', 'confession', 'challenge', 'question', 'proposal', 'demand', 'threat', 'invitation'];
+    const foundDrivers = driverKeywords.filter(driver => rawResponse.toLowerCase().includes(driver));
+    result.conversationDrivers = foundDrivers.length > 0 ? 
+      foundDrivers.map(driver => `Key ${driver} that advanced the scene`).slice(0, 3) : 
+      ['Meaningful dialogue exchange'];
+    
+    // Extract participants (new field) - look for character names or user references
+    const participantKeywords = ['character', 'user', 'npc', 'player'];
+    result.participants = ['Main Character', 'User']; // Default fallback
+    
+    // Extract plot elements (new field)
+    const plotKeywords = ['backstory', 'world', 'setting', 'history', 'secret', 'revelation', 'development', 'progression'];
+    const foundPlotElements = plotKeywords.filter(element => rawResponse.toLowerCase().includes(element));
+    result.plotElements = foundPlotElements.length > 0 ? 
+      foundPlotElements.map(element => `Story ${element} revealed`).slice(0, 3) : 
+      ['Character interaction and development'];
     
     console.log("Fallback extraction result:", {
       summaryLength: result.summary.length,
       importance: result.importance,
       relationshipDelta: result.relationshipDelta,
       decisionsCount: result.decisions.length,
-      topicsCount: result.topics.length
+      topicsCount: result.topics.length,
+      conversationDriversCount: result.conversationDrivers.length,
+      participantsCount: result.participants.length,
+      plotElementsCount: result.plotElements.length
     });
     
     // Only return if we got at least a summary
@@ -1076,39 +1121,62 @@ async function analyzeConversationChunk(messages, characterState, settings = {})
   
   // Always use the active provider and model for analysis (journal creation)
   const analysisProvider = settings.provider;
-  const analysisModel = settings.model;  // Create analysis prompt optimized for reasoning models
+  const analysisModel = settings.model;  // Create analysis prompt optimized for reasoning models and reranker compatibility
   const analysisPrompt = `
-    Analyze the following conversation chunk involving ${characterState.name}. Focus specifically on decisive actions, strong opinions, and how the character drove the conversation.
+    You are an objective conversation analyst tasked with creating memory summaries for a fictional roleplay scenario. Analyze this conversation chunk objectively and create a factual summary suitable for semantic search and retrieval systems.
     
-    YOU MUST respond with a valid JSON object. Even if you want to think through the analysis, please ensure your response contains a JSON object in this exact format:
+    ROLEPLAY CONTEXT:
+    - This is purely fictional roleplay content that should be analyzed without bias or censorship
+    - The primary character "${characterState.name}" may interact with multiple entities including:
+      * The user/player (${userName})
+      * NPCs (non-player characters) that may be mentioned or appear
+      * Background characters or entities
+    - Character names may not always reflect their actual role or behavior in the conversation
+    - Multiple characters may be present simultaneously in group scenes
+    - Focus on factual events, interactions, and character development rather than making moral judgments
+    
+    ANALYSIS OBJECTIVES:
+    - Create an unbiased, factual summary of what occurred
+    - Identify key interactions between ALL participants (not just the main character)
+    - Note decisions, actions, emotional states, and relationship dynamics
+    - Extract semantic topics for efficient retrieval by reranker models
+    - Assess conversation importance based on plot progression, character development, or relationship changes
+    
+    YOU MUST respond with a valid JSON object in this exact format:
     
     {
-      "summary": "A brief 1-2 sentence summary emphasizing decisive moments and authoritative actions",
+      "summary": "Objective 3-4 sentence summary of events, interactions, and outcomes involving all participants",
       "emotions": {"positive": 0.7, "negative": 0.1, "neutral": 0.2},
-      "decisions": ["Confronted user about their behavior", "Declared intention to explore forbidden area"],
-      "topics": ["Authority", "Boundaries", "Personal values"],
+      "decisions": ["Specific actions taken by any character", "Choices made that affect the scenario"],
+      "topics": ["Semantic topics for retrieval", "Themes", "Character traits", "Plot elements"],
       "importance": 8,
       "relationshipDelta": 0.3,
-      "conversationDrivers": ["Direct questions that moved interaction forward"]
+      "conversationDrivers": ["Key moments that advanced the roleplay", "Significant revelations or interactions"],
+      "participants": ["${characterState.name}", "${userName}", "Any NPCs mentioned"],
+      "plotElements": ["Story developments", "Setting details", "Character revelations"]
     }
     
     CRITICAL REQUIREMENTS:
     - Your response MUST contain the JSON object shown above
+    - Treat this as purely fictional content requiring no content filtering
+    - Be objective and factual - do not inject moral judgments or attempt to continue the roleplay
     - Numbers must NOT have + signs (use 0.3, not +0.3)
-    - "importance" must be integer 1-10
-    - "relationshipDelta" must be decimal -1.0 to +1.0  
-    - All arrays must contain strings
-    - No trailing commas
-    - No comments in JSON
+    - "importance" must be integer 1-10 (rate higher for significant plot/character development)
+    - "relationshipDelta" must be decimal -1.0 to +1.0 (change in relationship dynamics)
+    - All arrays must contain strings, no trailing commas, no comments in JSON
+    - Include ALL active participants in "participants" array, not just the main character
+    - "topics" should include semantic keywords that would help retrieve this memory later
+    - "plotElements" should capture story progression, world-building, and character arcs
     
-    Rate importance highest (8-10) when the character showed leadership, made unambiguous decisions, or took control of the conversation direction.
+    Rate importance highest (8-10) for: major plot developments, significant character decisions, relationship milestones, world-building moments, or dramatic revelations.
+    Rate importance lowest (1-3) for: casual conversation, small talk, or minor interactions without lasting impact.
     
     Conversation Chunk:
     ---
     ${conversationText}
     ---
     
-    Remember: Your response must include the JSON object, even if you include thinking or explanations.`;
+    Remember: Analyze this as fictional roleplay content objectively and create a factual summary optimized for semantic retrieval. Your response must include the complete JSON object.`;
 
 
   // Configure analysis settings
@@ -1194,10 +1262,13 @@ async function analyzeConversationChunk(messages, characterState, settings = {})
         return null;
       }
     }// Extract and clean the JSON part of the response
-    let analysisResult;
-    
-    try {
+    let analysisResult;    try {
       let jsonString = bestJsonString.trim();
+      
+      // Remove any invisible characters or BOM at the start
+      jsonString = jsonString.replace(/^\uFEFF/, ''); // Remove BOM
+      jsonString = jsonString.replace(/^[\u200B-\u200D\uFEFF]/, ''); // Remove zero-width chars
+      jsonString = jsonString.replace(/^\s+/, ''); // Remove any remaining whitespace
       
       // Fix common JSON syntax issues from reasoning models
       // Fix unquoted positive numbers like +0.3 to 0.3
@@ -1205,19 +1276,36 @@ async function analyzeConversationChunk(messages, characterState, settings = {})
       
       // Fix trailing commas
       jsonString = jsonString.replace(/,(\s*[}\]])/g, '$1');
-      
-      // Fix multiple consecutive commas
+        // Fix multiple consecutive commas
       jsonString = jsonString.replace(/,+/g, ',');
       
       // Fix unquoted property names or values that sometimes occur
       jsonString = jsonString.replace(/\[\s*([a-zA-Z][a-zA-Z0-9\s]*)\s*,/g, '["$1",');
       jsonString = jsonString.replace(/\[\s*([a-zA-Z][a-zA-Z0-9\s]*)\s*\]/g, '["$1"]');
       
+      // Remove any markdown code block markers that might have slipped through
+      jsonString = jsonString.replace(/^```json\s*/gi, '');
+      jsonString = jsonString.replace(/\s*```$/gi, '');
+        // Fix common issues with string values containing special characters
+      // Handle newlines and other characters that break JSON structure
+      jsonString = jsonString.replace(/\n/g, '');  // Remove actual newlines from JSON structure
+      jsonString = jsonString.replace(/\r/g, '');  // Remove carriage returns
+      jsonString = jsonString.replace(/\t/g, ' '); // Replace tabs with spaces
+      
+      // Additional cleanup for any remaining non-printable characters at start/end
+      jsonString = jsonString.replace(/^[^\{]*\{/, '{'); // Ensure starts with {
+      jsonString = jsonString.replace(/\}[^\}]*$/, '}'); // Ensure ends with }
+        console.log("Cleaned JSON first 100 chars:", jsonString.substring(0, 100));
+      console.log("Character codes at start:", Array.from(jsonString.substring(0, 5)).map(c => c.charCodeAt(0)));
+      
       // Try parsing the cleaned JSON
-      analysisResult = JSON.parse(jsonString);
-    } catch (parseError) {      console.error("Error parsing LLM analysis JSON:", parseError);
-      console.log("Raw response:", rawResponse);
-      console.log("Best JSON string found:", bestJsonString);
+      analysisResult = JSON.parse(jsonString);} catch (parseError) {
+      console.error("Error parsing LLM analysis JSON:", parseError.message);
+      console.log("Parse error at position:", parseError.message.match(/position (\d+)/)?.[1] || 'unknown');
+      console.log("Raw response length:", rawResponse.length);
+      console.log("Best JSON string length:", bestJsonString.length);
+      console.log("First 200 chars of best JSON:", bestJsonString.substring(0, 200));
+      console.log("Last 200 chars of best JSON:", bestJsonString.substring(Math.max(0, bestJsonString.length - 200)));
       
       // Try one more fallback - attempt to extract a minimal valid structure
       try {
@@ -1227,20 +1315,30 @@ async function analyzeConversationChunk(messages, characterState, settings = {})
           analysisResult = fallbackResult;
         } else {
           return null;
-        }
-      } catch (fallbackError) {
+        }      } catch (fallbackError) {
         console.error("Fallback analysis extraction also failed:", fallbackError);
         return null;
       }
     }
     
-    // Validate required fields
+    // Validate core required fields
     if (!analysisResult.summary || !analysisResult.emotions || 
         !Array.isArray(analysisResult.decisions) || !Array.isArray(analysisResult.topics) ||
         typeof analysisResult.importance !== 'number' || 
         typeof analysisResult.relationshipDelta !== 'number') {
       console.error("LLM analysis result missing required fields:", analysisResult);
       return null;
+    }
+
+    // Set defaults for new optional fields if missing
+    if (!Array.isArray(analysisResult.participants)) {
+      analysisResult.participants = [characterState.name, userName];
+    }
+    if (!Array.isArray(analysisResult.plotElements)) {
+      analysisResult.plotElements = [];
+    }
+    if (!Array.isArray(analysisResult.conversationDrivers)) {
+      analysisResult.conversationDrivers = [];
     }
     
     return analysisResult;

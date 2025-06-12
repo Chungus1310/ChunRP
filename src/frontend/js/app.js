@@ -2008,10 +2008,15 @@ async function regenerateResponse() {
       showErrorMessage('No user message found to regenerate from.');
       return;
     }
-    
-    // Remove the last assistant message from history
-    state.chatHistory.splice(lastAssistantIndex, 1);
+
+    // Extract and remove the last user + assistant messages for a clean regeneration
+    const userMessageContent = lastUserMessage;
+    state.chatHistory.splice(lastUserIndex, lastAssistantIndex - lastUserIndex + 1);
     renderChatHistory();
+    // Persist history without the last exchange
+    await saveChatHistory();
+    // Persist updated history
+    await saveChatHistory();
     
     // Show generating indicator
     state.isGenerating = true;
@@ -2032,12 +2037,11 @@ async function regenerateResponse() {
     
     // Remove generating indicator
     removeGeneratingIndicator();
-    
-    // Add new assistant response to chat history
+    // Re-add the user message and new assistant response
+    state.chatHistory.push({ role: 'user', content: userMessageContent });
     state.chatHistory.push({ role: 'assistant', content: data.response });
     renderChatHistory();
-    
-    // Save chat history
+    // Save regenerated exchange
     await saveChatHistory();
   } catch (error) {
     console.error('Error regenerating response:', error);
