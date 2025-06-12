@@ -1,3 +1,25 @@
+/* Performance mode for chat: disables heavy effects for large chats */
+.performance-mode .message-bubble,
+.performance-mode .message,
+.performance-mode .avatar,
+.performance-mode .message-content {
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  filter: none !important;
+  transition: none !important;
+  animation: none !important;
+}
+.performance-mode .message-bubble {
+  background: var(--assistant-message-bg) !important;
+}
+.show-more-messages {
+  text-align: center;
+  margin: 12px 0;
+}
+.show-more-messages button {
+  font-size: 1em;
+  padding: 6px 18px;
+}
 /* Failed message styling */
 .message.failed .message-bubble {
   background-color: #fff0f0;

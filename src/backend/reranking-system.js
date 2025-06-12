@@ -16,7 +16,8 @@ function initializeCohere(apiKey) {
 
 // Rerank memories using Jina API
 async function rerankWithJina(query, memories, settings = {}) {
-  const apiKey = settings.apiKeys?.jina || 'jina_ede670b60a8a4f528c4e04525cbb2a77OW_lld1XaXTkSq8m6f7UI83I_9FV';
+  const apiKey = settings.apiKeys?.jina || 'jina_52e5dc70ec8d4ceba5b05b86e474c32bWHXw1kGKJQhCQv51G9dYByIQcftF';
+  
   
   if (!apiKey) {
     throw new Error('Jina API key not provided');

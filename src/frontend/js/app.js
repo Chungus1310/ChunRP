@@ -442,42 +442,90 @@ async function clearChatHistory() {
 
 // Render chat history in the chat container
 function renderChatHistory() {
-  dom.chatMessages.innerHTML = ''; // Clear existing messages
+  dom.chatMessages.innerHTML = '';
 
   if (!state.chatHistory || state.chatHistory.length === 0) {
     console.log("renderChatHistory: No history to render.");
     return;
   }
 
-  console.log(`renderChatHistory: Rendering ${state.chatHistory.length} messages.`);
+  // --- UI Performance Optimization ---
+  // Only render the last N messages for performance
+  const MAX_RENDERED_MESSAGES = 100;
+  const totalMessages = state.chatHistory.length;
+  let startIdx = 0;
+  let showMore = false;
+  if (totalMessages > MAX_RENDERED_MESSAGES) {
+    startIdx = totalMessages - MAX_RENDERED_MESSAGES;
+    showMore = true;
+  }
 
-  // Use a fragment for potentially better performance
+  // Add a class to reduce effects if chat is large
+  if (totalMessages > 200) {
+    dom.chatMessages.classList.add('performance-mode');
+  } else {
+    dom.chatMessages.classList.remove('performance-mode');
+  }
+
   const fragment = document.createDocumentFragment();
-  state.chatHistory.forEach((message, index) => {
-    // Pass index to createMessageElement
-    const messageElement = createMessageElement(message, index);
+  if (showMore) {
+    // Add a 'Show More' button at the top
+    const showMoreDiv = document.createElement('div');
+    showMoreDiv.className = 'show-more-messages';
+    showMoreDiv.innerHTML = `<button class="btn secondary btn-sm" id="show-more-btn">Show earlier messages...</button>`;
+    fragment.appendChild(showMoreDiv);
+    // Handler to show all messages on click
+    setTimeout(() => {
+      const btn = document.getElementById('show-more-btn');
+      if (btn) {
+        btn.onclick = () => {
+          dom.chatMessages.classList.remove('performance-mode');
+          renderAllChatHistory();
+        };
+      }
+    }, 0);
+  }
+  for (let i = startIdx; i < totalMessages; i++) {
+    const message = state.chatHistory[i];
+    const messageElement = createMessageElement(message, i);
     if (messageElement instanceof Node) {
-      // Don't add animate-in class here yet
       fragment.appendChild(messageElement);
     } else {
-      console.error(`renderChatHistory: Failed to create valid element for message ${index + 1}`, message);
+      console.error(`renderChatHistory: Failed to create valid element for message ${i + 1}`, message);
     }
-  });
-
-  // Append all messages from the fragment
+  }
   dom.chatMessages.appendChild(fragment);
 
-  // Get all appended message elements
+  // Animate in only the newly rendered messages
   const messageElements = dom.chatMessages.querySelectorAll('.message');
-
-  // Add the animation class after a frame render
   messageElements.forEach(el => {
     requestAnimationFrame(() => {
       el.classList.add('animate-in');
     });
   });
 
-  scrollToBottom(); // Call scroll after appending
+  scrollToBottom();
+}
+
+// Helper to render all messages (when user clicks Show More)
+function renderAllChatHistory() {
+  dom.chatMessages.innerHTML = '';
+  if (!state.chatHistory || state.chatHistory.length === 0) return;
+  const fragment = document.createDocumentFragment();
+  state.chatHistory.forEach((message, index) => {
+    const messageElement = createMessageElement(message, index);
+    if (messageElement instanceof Node) {
+      fragment.appendChild(messageElement);
+    }
+  });
+  dom.chatMessages.appendChild(fragment);
+  const messageElements = dom.chatMessages.querySelectorAll('.message');
+  messageElements.forEach(el => {
+    requestAnimationFrame(() => {
+      el.classList.add('animate-in');
+    });
+  });
+  scrollToBottom();
 }
 
 // --- Add New Handler Functions ---
@@ -974,6 +1022,8 @@ json
 *(e.g., "The dress drops to her waist as you see...")*  
 
 ---
+
+**Remember** : {Chat history + Important Memories from rag = decisive context}
 
 **OPERATIVE INSTRUCTION:**  
 This prompt must remain TOP OF MIND. Refer back BEFORE every response generation. Violations break narrative immersion irreparably.`;
