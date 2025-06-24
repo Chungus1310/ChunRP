@@ -31,7 +31,8 @@ const llmProviderFactory = {
       // Define models that support thinking budget
       const modelsWithThinkingBudget = [
         "gemini-2.5-pro-preview-05-06",
-        "gemini-2.5-flash-preview-04-17"
+        "gemini-2.5-flash-preview-04-17",
+        "gemini-2.5-flash-preview-05-20"
       ];
 
       // Determine if thinking budget should be used
@@ -439,6 +440,13 @@ const llmProviderFactory = {
   },
 };
 
+// Utility to strip <think>...</think> tags and their content from a string
+function stripThinkTags(text) {
+  if (typeof text !== 'string') return text;
+  // Remove all <think>...</think> blocks, including multiline
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+}
+
 // Main function to generate a response using the selected provider
 async function generateResponse(character, userMessage, userProfile, chatHistory, settings) {
   try {
@@ -556,7 +564,10 @@ async function generateResponse(character, userMessage, userProfile, chatHistory
     // --- End Log ---
 
     // 7. Call the provider
-    const response = await provider(fullContext, providerSettings);
+    let response = await provider(fullContext, providerSettings);
+
+    // Strip <think> tags from response content
+    response = stripThinkTags(response);
 
     // 8. Update chat history (mutates the array passed in)
     chatHistory.push({ role: "user", content: userMessage });
@@ -596,14 +607,7 @@ async function generateResponse(character, userMessage, userProfile, chatHistory
 
 // Available models grouped by provider (for UI dropdowns etc.)
 const modelConfigurations = {
-  requesty: [
-    { id: "google/gemini-2.0-flash-exp", name: "Gemini 2.0 Flash Exp", free: true },
-    { id: "google/gemini-2.0-flash-thinking-exp-01-21", name: "Gemini 2.0 Flash Thinking Exp 01-21", free: true },
-    { id: "google/gemini-2.0-pro-exp-02-05", name: "Gemini 2.0 Pro Exp 02-05", free: true },
-    { id: "google/gemini-2.5-pro-exp-03-25", name: "Gemini 2.5 Pro Exp 03-25", free: true },
-    { id: "google/gemma-3-27b-it", name: "Gemma 3 27B IT", free: true },
-    { id: "novita/sao10k/l3-8b-lunaris", name: "L3-8B Lunaris (Paid)", free: false }
-  ],  openrouter: [
+  openrouter: [
     { id: "google/gemini-2.0-flash-exp:free", name: "Gemini 2.0 Flash Exp (Free)", free: true },
     { id: "microsoft/mai-ds-r1:free", name: "MAI-DS R1 (Free)", free: true },
     { id: "arliai/qwq-32b-arliai-rpr-v1:free", name: "QWQ 32B RPR", free: true },
@@ -629,6 +633,8 @@ const modelConfigurations = {
     { id: "gemini-2.5-pro-preview-05-06", name: "Gemini 2.5 Pro Preview" },
     { id: "gemini-2.5-flash-preview-04-17", name: "Gemini 2.5 Flash Preview 04-17" },
     { id: "gemini-2.5-flash-preview-05-20", name: "Gemini 2.5 Flash Preview 05-20" },
+    { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
+    { id: "gemini-2.5-flash-lite-preview-06-17", name: "Gemini 2.5 Flash Lite Preview 06-17" },
     { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash" },
     { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite" },
     { id: "gemini-2.0-flash-thinking-exp-01-21", name: "Gemini 2.0 Flash Thinking" },
@@ -659,7 +665,8 @@ const modelConfigurations = {
     { id: "ArliAI/QwQ-32B-ArliAI-RpR-v1", name: "ArliAI QwQ 32B RPR v1" },
     { id: "microsoft/MAI-DS-R1-FP8", name: "Microsoft MAI-DS R1 FP8" },
     { id: "tngtech/DeepSeek-R1T-Chimera", name: "TNG DeepSeek R1T Chimera" },
-    { id: "Qwen/Qwen3-235B-A22B", name: "Qwen3-235B-A22B" }
+    { id: "Qwen/Qwen3-235B-A22B", name: "Qwen3-235B-A22B" },
+    { id: "chutesai/Llama-4-Maverick-17B-128E-Instruct-FP8", name: "Llama-4 Maverick 17B 128E Instruct FP8" }
   ],
   nvidia: [
     { id: "nvidia/llama-3.3-nemotron-super-49b-v1", name: "Llama 3.3 Nemotron Super 49B" },

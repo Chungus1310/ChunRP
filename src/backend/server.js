@@ -19,12 +19,13 @@ import {
   loadAllCharacters, 
   loadCharacter, 
   createCharacter,
-  saveCharacter, 
   updateCharacter,
   deleteCharacter,
   loadChatHistory,
   saveChatHistory,
-  clearChatHistory
+  clearChatHistory,
+  loadSettings,
+  saveSettings
 } from './character-system.js';
 
 // LLM stuff
@@ -35,6 +36,9 @@ import {
   retrieveRelevantMemories, 
   initializeVectorStorage 
 } from './memory-system.js';
+
+// Database initialization
+import { initializeDatabase, closeDatabase } from './database.js';
 
 
 const app = express();
@@ -88,12 +92,12 @@ app.get('/api/logs', (req, res) => {
 // --- SSE LOG BROADCAST SETUP ---
 
 
-// Load settings from JSON
-function loadSettings() {
+// Load settings from database
+function loadSettingsFromDB() {
   try {
-    const settingsPath = path.join(__dirname, '../../data/settings.json');
-    if (!fs.existsSync(settingsPath)) {
-      // Default settings if file doesn't exist
+    const settings = loadSettings();
+    if (!settings) {
+      // Default settings if none exist
       const defaultSettings = {
         provider: 'gemini',
         model: 'gemini-2.5-pro-preview-03-25',
@@ -115,8 +119,8 @@ function loadSettings() {
           embeddingProvider: 'nvidia',
           embeddingModel: 'baai/bge-m3',
           queryEmbeddingMethod: 'llm-summary',
-          analysisProvider: 'gemini', // Set default provider for memory analysis
-          analysisModel: 'gemini-2.0-flash', // Set model for memory analysis 
+          analysisProvider: 'gemini',
+          analysisModel: 'gemini-2.0-flash',
           hydeEnabled: false,
           weights: {
             recency: 5,
@@ -135,24 +139,21 @@ function loadSettings() {
       return defaultSettings;
     }
     
-    return JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+    return settings;
   } catch (error) {
     console.error("Error loading settings:", error);
     return {}; // Return empty object on error
   }
 }
 
-// Save settings to JSON
-function saveSettings(settings) {
-  const settingsPath = path.join(__dirname, '../../data/settings.json');
-  
-  // Make sure the directory exists
-  const settingsDir = path.dirname(settingsPath);
-  if (!fs.existsSync(settingsDir)) {
-    fs.mkdirSync(settingsDir, { recursive: true });
+// Save settings to database
+function saveSettingsToDB(settings) {
+  try {
+    return saveSettings(settings);
+  } catch (error) {
+    console.error("Error saving settings:", error);
+    return false;
   }
-  
-  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 }
 
 // --- API Endpoints ---
@@ -235,23 +236,25 @@ app.put('/api/characters/:name', (req, res) => {
     // Check if in cache first
     const cachedCharacter = characterCache.get(req.params.name);
     let updatedCharacter;
-    
-    if (cachedCharacter) {
+      if (cachedCharacter) {
       // Update cached character
       updatedCharacter = {
         ...cachedCharacter,
         ...req.body,
         modifiedAt: Date.now()
       };
-      // Save to disk immediately
-      if (!saveCharacter(updatedCharacter)) {
-        return res.status(500).json({ error: 'Failed to save character to disk.' });
+      // Save to database immediately
+      const dbUpdatedCharacter = updateCharacter(req.params.name, req.body);
+      if (!dbUpdatedCharacter) {
+        return res.status(500).json({ error: 'Failed to save character to database.' });
       }
+      // Use the result from database to ensure consistency
+      updatedCharacter = dbUpdatedCharacter;
+      
       // If name is changing, handle cache properly
       if (req.body.name && req.body.name !== req.params.name) {
         characterCache.delete(req.params.name);
         characterCache.set(req.body.name, updatedCharacter);
-        deleteCharacter(req.params.name);
       } else {
         characterCache.set(req.params.name, updatedCharacter);
       }
@@ -324,7 +327,7 @@ app.post('/api/chat', async (req, res) => {
     const chatHistory = loadChatHistory(characterName); 
     
     // Load settings
-    const globalSettings = loadSettings(); 
+    const globalSettings = loadSettingsFromDB(); 
     const mergedSettings = {
       ...globalSettings,
       ...(settings || {}) // Make sure settings is at least {}
@@ -446,9 +449,8 @@ app.get('/api/memories/:characterName', async (req, res) => {
     await initializeVectorStorage();
     // Load character data and chat history
     const character = loadCharacterWithCache ? loadCharacterWithCache(charName) : loadCharacter(charName);
-    const chatHistory = loadChatHistory(charName);
-    // Load settings
-    const settings = loadSettings();
+    const chatHistory = loadChatHistory(charName);    // Load settings
+    const settings = loadSettingsFromDB();
     const retrievalCount = settings.memory?.retrievalCount || 5;
     // Determine last user message for query
     const lastUser = [...chatHistory].reverse().find(m => m.role === 'user');
@@ -488,9 +490,8 @@ app.post('/api/memories/:characterName/recycle', async (req, res) => {
     if (!chatHistory || chatHistory.length === 0) {
       return res.status(400).json({ error: 'No chat history available for memory recycling.' });
     }
-    
-    // Load settings
-    const settings = loadSettings();
+      // Load settings
+    const settings = loadSettingsFromDB();
       // Import memory functions
     const { recycleCharacterMemories } = await import('./memory-system.js');
     
@@ -539,11 +540,11 @@ app.get('/api/memories/:characterName/progress', (req, res) => {
 // Get settings
 app.get('/api/settings', (req, res) => {
   try {
-    const settings = loadSettings();
-    // loadSettings returns {} on error, which is probably fine
+    const settings = loadSettingsFromDB();
+    // loadSettingsFromDB returns {} on error, which is probably fine
     res.json(settings);
   } catch (error) {
-    // Unlikely if loadSettings handles its own errors
+    // Unlikely if loadSettingsFromDB handles its own errors
     console.error("Error in GET /api/settings:", error);
     res.status(500).json({ error: 'Failed to load settings.' });
   }
@@ -557,10 +558,10 @@ app.put('/api/settings', (req, res) => {
         return res.status(400).json({ error: 'Invalid settings data provided.' });
     }
     const settings = req.body;
-    saveSettings(settings); // saveSettings handles file writing errors
+    saveSettingsToDB(settings); // saveSettingsToDB handles database errors
     res.json(settings); // Return saved settings
   } catch (error) {
-    // Unlikely if saveSettings handles errors
+    // Unlikely if saveSettingsToDB handles errors
     console.error("Error in PUT /api/settings:", error);
     res.status(500).json({ error: 'Failed to save settings.' });
   }
@@ -589,22 +590,42 @@ app.use((req, res, next) => {
   next();
 });
 
+// Initialize database before starting server
+async function startServer() {
+  console.log('Initializing database...');
+  const dbInit = initializeDatabase();
+  if (!dbInit) {
+    console.error('Failed to initialize database. Exiting...');
+    process.exit(1);
+  }
+  
+  console.log('Initializing vector storage...');
+  await initializeVectorStorage();
+  
+  const server = app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log('Database: SQLite (data/chunrp.db)');
+    console.log('Vector storage: Vectra (data/memory-vectra/)');
+  });
+  
+  return server;
+}
+
 // Start the server
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+const server = await startServer();
 
 // Handle graceful shutdown
 process.on('SIGINT', () => {
   console.log('Server shutting down...');
-  
-  // Save any dirty characters
+    // Save any dirty characters
   if (dirtyCharacters.size > 0) {
     console.log(`Saving ${dirtyCharacters.size} characters before shutdown...`);
     saveCache();
   }
   
   server.close(() => {
+    console.log('Closing database connection...');
+    closeDatabase();
     console.log('Server closed');
     process.exit(0);
   });
@@ -613,14 +634,15 @@ process.on('SIGINT', () => {
 // Also save on SIGTERM (used by many hosting providers)
 process.on('SIGTERM', () => {
   console.log('Server received SIGTERM signal');
-  
-  // Save any dirty characters
+    // Save any dirty characters
   if (dirtyCharacters.size > 0) {
     console.log(`Saving ${dirtyCharacters.size} characters before termination...`);
     saveCache();
   }
   
   server.close(() => {
+    console.log('Closing database connection...');
+    closeDatabase();
     console.log('Server closed');
     process.exit(0);
   });
@@ -668,15 +690,14 @@ function saveCache() {
   }
   
   console.log(`Saving ${dirtyCharacters.size} modified characters to disk...`);
-  
-  dirtyCharacters.forEach(characterName => {
+    dirtyCharacters.forEach(characterName => {
     const character = characterCache.get(characterName);
     if (character) {
       try {
-        saveCharacter(character);
-        console.log(`Saved ${characterName} to disk`);
+        updateCharacter(characterName, character);
+        console.log(`Saved ${characterName} to database`);
       } catch (error) {
-        console.error(`Failed to save ${characterName} to disk:`, error);
+        console.error(`Failed to save ${characterName} to database:`, error);
       }
     }
   });
