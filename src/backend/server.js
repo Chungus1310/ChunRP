@@ -39,6 +39,7 @@ import {
 
 // Database initialization
 import { initializeDatabase, closeDatabase } from './database.js';
+import { initializeDataDirectory } from './app-paths.js';
 
 
 const app = express();
@@ -592,6 +593,9 @@ app.use((req, res, next) => {
 
 // Initialize database before starting server
 async function startServer() {
+  console.log('Initializing data directories...');
+  await initializeDataDirectory();
+  
   console.log('Initializing database...');
   const dbInit = initializeDatabase();
   if (!dbInit) {

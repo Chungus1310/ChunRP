@@ -3,18 +3,16 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { getDatabasePath, ensureDataDirectory } from './app-paths.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Database file path
-const DB_PATH = path.join(__dirname, '../../data/chunrp.db');
+// Database file path - use the utility function
+const DB_PATH = getDatabasePath();
 
 // Ensure data directory exists
-const dataDir = path.dirname(DB_PATH);
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
+const dataDir = ensureDataDirectory();
 
 // Initialize database connection
 let db;

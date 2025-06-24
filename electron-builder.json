@@ -3,12 +3,9 @@
   "productName": "ChunRP",
   "directories": {
     "output": "dist"
-  },
-  "files": [
+  },  "files": [
     "src/**/*",
-    "data/**/*",
-    "!data/memory-lancedb/**/*",
-    "!data/chat-history/**/*", 
+    "!data/**/*",
     "!**/*.map", 
     "node_modules/**/*",
     "package.json"
@@ -30,11 +27,15 @@
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true
-  },
-  "extraResources": [
+  },  "extraResources": [
     {
       "from": "src/frontend/assets",
       "to": "assets",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "data",
+      "to": "data",
       "filter": ["**/*"]
     }
   ],

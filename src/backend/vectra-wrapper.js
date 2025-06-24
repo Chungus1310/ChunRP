@@ -4,11 +4,12 @@ import { LocalIndex } from 'vectra';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { getMemoryStoragePath } from './app-paths.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const INDEX_DIR = path.join(__dirname, '../../data/memory-vectra');
+const INDEX_DIR = getMemoryStoragePath();
 if (!fs.existsSync(INDEX_DIR)) {
   fs.mkdirSync(INDEX_DIR, { recursive: true });
 }

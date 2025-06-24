@@ -25,6 +25,7 @@ ChunRP is an **immersive local roleplay chatbot** that brings your AI characters
 - 🧠 **Advanced Memory System** - Characters remember everything with vector-based long-term memory and intelligent retrieval
 - 🎯 **Memory Reranking** - Powered by Jina, Cohere, and NVIDIA for precision memory recall
 - ♻️ **Memory Recycling** - Rebuild character memories from scratch with progress tracking
+- 🗄️ **SQLite Database** - Fast, reliable data storage with ACID compliance and proper relationships
 - 🤖 **9+ AI Providers** - Support for latest models including DeepSeek R1, Gemini 2.5, QWQ 32B, and more
 - 🏠 **100% Local** - Your conversations stay private on your machine
 - 📱 **Mobile Responsive** - Works beautifully on desktop, tablet, and mobile
@@ -40,6 +41,7 @@ ChunRP is an **immersive local roleplay chatbot** that brings your AI characters
 - **Avatar Support**: Add custom avatars via URL or use the default avatar
 - **Character Import/Export**: Share characters or backup your creations
 - **Settings Override**: Customize LLM settings per character for unique personalities
+- **SQLite Storage**: Characters are now stored in a fast, reliable SQLite database
 
 ### 🧠 Advanced Memory System
 
@@ -49,6 +51,7 @@ ChunRP is an **immersive local roleplay chatbot** that brings your AI characters
 > - **Memory Reranking** with Jina, Cohere, and NVIDIA APIs
 > - **Memory Recycling** with real-time progress tracking
 > - **Reasoning Model Support** with robust JSON extraction
+> - **SQLite Database** for improved performance and reliability
 
 </div>
 
@@ -59,6 +62,7 @@ ChunRP is an **immersive local roleplay chatbot** that brings your AI characters
 - **Smart Retrieval**: Relevant memories are automatically surfaced with LLM summaries, HyDE, or averaging methods
 - **Robust Processing**: Handles reasoning model thinking blocks and malformed responses gracefully
 - **Progress Tracking**: Real-time memory creation progress with detailed status updates
+- **Database Integration**: Chat history stored in SQLite with efficient querying and relationships
 
 ### 🔄 Memory Reranking System
 
@@ -95,10 +99,12 @@ ChunRP is an **immersive local roleplay chatbot** that brings your AI characters
 ### 💬 Enhanced Chat Features
 - **Markdown Support**: Rich text formatting in messages
 - **Message Actions**: Edit, delete, regenerate any message
-- **Persistent History**: Conversation history per character with import/export
+- **Persistent History**: Conversation history stored in SQLite database with fast retrieval
+- **Chat Import/Export**: Backup and restore individual character conversations
 - **Emoji Picker**: Express yourself with emojis
 - **Mobile Optimized**: Seamless experience on any device
 - **Reasoning Model Support**: Handles thinking blocks and complex reasoning outputs
+- **Real-time Sync**: All changes automatically saved to database
 
 ### 🎨 Modern UI & Themes
 
@@ -146,12 +152,16 @@ ChunRP is an **immersive local roleplay chatbot** that brings your AI characters
    http://localhost:3000
    ```
 
+> **📝 Note:** If you're upgrading from an older version that used JSON files, ChunRP will automatically detect and offer to migrate your data to SQLite for better performance.
+
 ### 🔧 Configuration
 
 1. **Set up API Keys** - Click the settings gear ⚙️ and add your API keys
-2. **Configure Memory System** - Set up reranking provider and embedding preferences
+2. **Configure Memory System** - Set up reranking provider and embedding preferences  
 3. **Create Your First Character** - Click "Create Character" and fill in the details
 4. **Start Chatting** - Select your character and begin your adventure!
+
+> **🔄 Migrating from JSON?** If you have an existing ChunRP installation with JSON files, run `npm run migrate` to automatically convert your data to the new SQLite format. Your original files will be safely backed up!
 
 ---
 
@@ -252,30 +262,35 @@ ChunRP is fully responsive with:
 ChunRP/
 ├── 📁 src/
 │   ├── 📁 backend/
-│   │   ├── 🔧 server.js           # Express server & API routes
-│   │   ├── 👤 character-system.js  # Character CRUD operations
-│   │   ├── 🤖 llm-providers.js     # AI provider integrations (9+ providers)
-│   │   ├── 🧠 memory-system.js     # Vector memory system with reranking
-│   │   ├── 🔄 reranking-system.js  # Memory reranking with multiple APIs
-│   │   └── 📊 vectra-wrapper.js    # Vector database wrapper
-│   ├── 📁 frontend/
-│   │   ├── 🏠 index.html           # Main HTML structure
+│   │   ├── 🔧 server.js                  # Express server & API routes
+│   │   ├── 🗄️ database.js               # SQLite database layer
+│   │   ├── 👤 character-system.js       # Character CRUD operations (now exports from SQLite)
+│   │   ├── 👤 character-system-sqlite.js # SQLite-based character operations
+│   │   ├── 🤖 llm-providers.js          # AI provider integrations (9+ providers)
+│   │   ├── 🧠 memory-system.js          # Vector memory system with reranking
+│   │   ├── 🔄 reranking-system.js       # Memory reranking with multiple APIs
+│   │   ├── 📊 vectra-wrapper.js         # Vector database wrapper
+│   │   ├── � migration.js              # Database migration utilities
+│   │   └── 📍 app-paths.js              # Path management for different environments
+│   ├── �📁 frontend/
+│   │   ├── 🏠 index.html                # Main HTML structure
 │   │   ├── 📁 css/
-│   │   │   ├── 🎨 main.css         # Core styles with modern design
-│   │   │   ├── 🌙 themes.css       # Dark/Light theme definitions
-│   │   │   └── 📱 mobile.css       # Mobile responsiveness
+│   │   │   ├── 🎨 main.css              # Core styles with modern design
+│   │   │   ├── 🌙 themes.css            # Dark/Light theme definitions
+│   │   │   └── 📱 mobile.css            # Mobile responsiveness
 │   │   ├── 📁 js/
-│   │   │   ├── ⚡ app.js           # Main application logic
-│   │   │   ├── 🧠 memories-api.js  # Memory management frontend
-│   │   │   └── 📱 mobile-ui.js     # Mobile-specific features
-│   │   └── 📁 assets/              # Images and icons
-│   └── ⚡ electron.js              # Desktop app entry point
+│   │   │   ├── ⚡ app.js                # Main application logic
+│   │   │   ├── 🧠 memories-api.js       # Memory management frontend
+│   │   │   └── 📱 mobile-ui.js          # Mobile-specific features
+│   │   └── 📁 assets/                   # Images and icons
+│   └── ⚡ electron.js                   # Desktop app entry point
 ├── 📁 data/
-│   ├── 👥 characters/              # Character JSON files
-│   ├── 💬 chat-history/            # Conversation histories
-│   ├── 🧠 memory-vectra/           # Vector memory storage
-│   └── ⚙️ settings.json            # User configuration
-└── 📦 package.json                # Dependencies and scripts
+│   ├── �️ chunrp.db                    # SQLite database (characters, messages, settings)
+│   ├── 🧠 memory-vectra/                # Vector memory storage
+│   └── 📋 data-backup/                  # Migration backup files (if migrated)
+├── 🔄 migrate.js                        # Database migration runner
+├── 🧹 cleanup.js                        # Post-migration cleanup
+└── 📦 package.json                      # Dependencies and scripts
 ```
 
 ### 🔨 Available Scripts
@@ -287,6 +302,10 @@ npm start           # Production server
 npm run electron    # Desktop app
 npm run build       # Build desktop app
 npm test           # Run tests
+
+# Database Management
+npm run migrate     # Run SQLite migration (if upgrading from JSON)
+npm run cleanup     # Archive old JSON files post-migration
 
 # Docker
 docker build -t chunrp .
@@ -335,6 +354,67 @@ GET    /api/logs                # Server-sent events for logs
 
 </details>
 
+### 🗄️ Database Schema
+
+ChunRP now uses SQLite for reliable data storage:
+
+<details>
+<summary><strong>Database Tables</strong></summary>
+
+**Characters Table**
+```sql
+CREATE TABLE characters (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT UNIQUE NOT NULL,
+  description TEXT DEFAULT '',
+  current_scenario TEXT DEFAULT '',
+  persona TEXT DEFAULT '',
+  appearance TEXT DEFAULT '',
+  avatar_url TEXT DEFAULT '',
+  first_message TEXT DEFAULT '',
+  system_prompt TEXT DEFAULT '',
+  settings_override TEXT DEFAULT '{}',
+  created_at INTEGER NOT NULL,
+  modified_at INTEGER NOT NULL
+);
+```
+
+**Chat Messages Table**
+```sql
+CREATE TABLE chat_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  character_id INTEGER NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
+  content TEXT NOT NULL,
+  timestamp INTEGER NOT NULL,
+  FOREIGN KEY (character_id) REFERENCES characters (id) ON DELETE CASCADE
+);
+```
+
+**Character Relationships Table**
+```sql
+CREATE TABLE character_relationships (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  character_id INTEGER NOT NULL,
+  user_name TEXT NOT NULL DEFAULT 'User',
+  status TEXT DEFAULT 'neutral',
+  sentiment REAL DEFAULT 0.0,
+  updated_at INTEGER NOT NULL,
+  FOREIGN KEY (character_id) REFERENCES characters (id) ON DELETE CASCADE
+);
+```
+
+**Settings Table**
+```sql
+CREATE TABLE settings (
+  id INTEGER PRIMARY KEY,
+  data TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+```
+
+</details>
+
 ### 🔌 Adding New LLM Providers
 
 1. **Add to `llm-providers.js`**:
@@ -368,22 +448,28 @@ GET    /api/logs                # Server-sent events for logs
 
 ## 🆕 Recent Updates
 
-### 🎉 Latest Features (v2.1.0)
+### 🎉 Latest Features (v3.0.0) - Major Database Migration!
 
-- **🔄 Memory Reranking System**: Intelligent memory retrieval with Jina, Cohere, and NVIDIA APIs
+- **�️ SQLite Database Migration**: Complete transition from JSON files to SQLite for better performance and reliability
+- **�🔄 Memory Reranking System**: Intelligent memory retrieval with Jina, Cohere, and NVIDIA APIs
 - **♻️ Memory Recycling**: Complete memory regeneration with progress tracking and error recovery
 - **🤖 Reasoning Model Support**: Robust handling of thinking blocks and malformed JSON responses
-- **🎨 Enhanced UI**: Improved themes, better mobile experience, and modern design elements
 - **📊 Progress Tracking**: Real-time memory creation progress with detailed status updates
 - **🔧 Provider Expansion**: Added latest models including DeepSeek R1, Gemini 2.0 Thinking, QWQ 32B
-- **⚡ Performance Improvements**: Optimized memory retrieval and chat response times
+- **⚡ Performance Improvements**: Significantly faster data operations with SQLite queries
+- **🛡️ Data Integrity**: Foreign key constraints and ACID compliance prevent data corruption
+- **🎨 Enhanced UI**: Improved themes, better mobile experience, and modern design elements
 
 ### 🔧 Technical Improvements
 
-- **JSON Extraction**: Robust parsing for reasoning model outputs with thinking blocks
-- **Error Handling**: Graceful fallback systems for memory creation and reranking
-- **API Reliability**: Automatic provider switching and timeout handling
-- **Memory Efficiency**: Optimized vector storage and retrieval algorithms
+- **🗄️ Database Architecture**: Modern SQLite database with proper schema design and indexing
+- **🔗 Data Relationships**: Proper foreign key relationships between characters, messages, and relationships
+- **🔒 Transaction Safety**: Atomic database operations with automatic backup and recovery
+- **📈 Better Performance**: SQLite queries are significantly faster than JSON file operations
+- **🚀 Migration Tools**: Automated migration system with validation and rollback capabilities
+- **💾 Memory Efficiency**: No need to load entire JSON files into memory
+- **🔧 Error Handling**: Graceful fallback systems for memory creation and reranking
+- **🌐 API Reliability**: Automatic provider switching and timeout handling
 
 ---
 
