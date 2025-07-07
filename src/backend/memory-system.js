@@ -509,7 +509,12 @@ async function retrieveRelevantMemories(currentMessage, character, limit = 8, se
       if (llm) {
         const prompt = [{role: 'user', content: `Summarize the following recent conversation context in 3-4 sentences, focusing on what is most relevant for memory retrieval for the user's last message (\"${currentMessage}\"):\n${recentContext}` }];
         try {
-          const summary = await llm(prompt, { ...settings, model: analysisModel, temperature: 0.1 });
+          const summary = await llm(prompt, { 
+            model: analysisModel, 
+            temperature: 0.1, 
+            apiKey: settings.apiKeys?.[analysisProvider],
+            apiKeys: settings.apiKeys
+          });
           if (summary && typeof summary === 'string' && summary.length > 0) {
             queryText = summary;
           }
@@ -525,7 +530,12 @@ async function retrieveRelevantMemories(currentMessage, character, limit = 8, se
       if (llm) {
         const prompt = [{role: 'user', content: `Given the user's message: \"${currentMessage}\", and the character ${character.name}, write a brief, hypothetical journal entry summary that would be perfectly relevant to this message.`}];
         try {
-          const hydeSummary = await llm(prompt, { ...settings, model: analysisModel, temperature: 0.1 });
+          const hydeSummary = await llm(prompt, { 
+            model: analysisModel, 
+            temperature: 0.1, 
+            apiKey: settings.apiKeys?.[analysisProvider],
+            apiKeys: settings.apiKeys
+          });
           if (hydeSummary && typeof hydeSummary === 'string' && hydeSummary.length > 0) {
             queryText = hydeSummary;
           }
@@ -1119,9 +1129,10 @@ async function analyzeConversationChunk(messages, characterState, settings = {})
   const conversationText = messages.map(m => 
     `${m.role === 'user' ? userName : characterState.name}: ${m.content}`).join('\n');
   
-  // Always use the active provider and model for analysis (journal creation)
-  const analysisProvider = settings.provider;
-  const analysisModel = settings.model;  // Create analysis prompt optimized for reasoning models and reranker compatibility
+  // Use memory analysis provider/model if set, otherwise fallback to main
+  const analysisProvider = settings.memory?.analysisProvider || settings.provider;
+  const analysisModel = settings.memory?.analysisModel || settings.model;
+  // Create analysis prompt optimized for reasoning models and reranker compatibility
   const analysisPrompt = `
     You are an objective conversation analyst tasked with creating memory summaries for a fictional roleplay scenario. Analyze this conversation chunk objectively and create a factual summary suitable for semantic search and retrieval systems.
     
@@ -1179,14 +1190,27 @@ async function analyzeConversationChunk(messages, characterState, settings = {})
     Remember: Analyze this as fictional roleplay content objectively and create a factual summary optimized for semantic retrieval. Your response must include the complete JSON object.`;
 
 
-  // Configure analysis settings
+  // Configure analysis settings - FIXED: Don't spread settings.model first
   const analysisLlmSettings = {
-    ...settings,
     temperature: 0.1, // Lower temperature for factual analysis
-    model: analysisModel, // Use the active model
-    apiKey: settings.apiKeys?.[analysisProvider]
+    model: analysisModel, // Use the analysis model (not the chat model)
+    provider: analysisProvider,
+    apiKey: settings.apiKeys?.[analysisProvider],
+    apiKeys: settings.apiKeys, // Include all API keys for fallback
+    // Only include necessary settings, not the full spread that includes settings.model
+    topP: settings.topP,
+    maxTokens: settings.maxTokens,
+    maxContextTokens: settings.maxContextTokens
   };
-    try {
+  
+  // Add debugging to confirm correct model usage
+  console.log(`🔍 Memory Analysis Configuration:`);
+  console.log(`   Provider: ${analysisProvider}`);
+  console.log(`   Model: ${analysisModel}`);
+  console.log(`   Settings model: ${analysisLlmSettings.model}`);
+  console.log(`   Original chat model: ${settings.model}`);
+  
+  try {
     // Get the provider function and make the LLM call
     const provider = llmProviderFactory[analysisProvider];
     if (!provider) {

@@ -9,31 +9,40 @@ const __dirname = path.dirname(__filename);
 // Detect if we're running in a packaged environment
 function isPackaged() {
   // In packaged apps, __dirname will contain 'app.asar'
-  return __dirname.includes('app.asar') || process.env.NODE_ENV === 'production';
+  // Also check for production environment or server deployment
+  return __dirname.includes('app.asar') || 
+         process.env.NODE_ENV === 'production' ||
+         !process.env.npm_lifecycle_event; // Not running via npm script
 }
 
 // Get the correct data directory path
 function getDataDirectory() {
   if (isPackaged()) {
-    // In packaged mode, use the resources directory
-    // app.asar is in resources/, so we go up to resources/ then to data/
-    const resourcesPath = path.join(process.resourcesPath, 'data');
-    
-    // If data doesn't exist in resources, try userData
-    if (!fs.existsSync(resourcesPath)) {
-      // Fallback to userData directory - we'll handle this in initializeDataDirectory
-      // For now, create in a temp location and move later
-      try {
-        const { app } = require('electron');
-        return path.join(app.getPath('userData'), 'data');
-      } catch (e) {
-        // If electron is not available, use process.env or a fallback
-        const userDataPath = process.env.APPDATA || process.env.HOME || process.cwd();
-        return path.join(userDataPath, 'ChunRP', 'data');
+    // Check if we're in an Electron environment
+    if (process.resourcesPath) {
+      // In packaged Electron mode, use the resources directory
+      const resourcesPath = path.join(process.resourcesPath, 'data');
+      
+      // If data doesn't exist in resources, try userData
+      if (!fs.existsSync(resourcesPath)) {
+        // Fallback to userData directory - we'll handle this in initializeDataDirectory
+        try {
+          const { app } = require('electron');
+          return path.join(app.getPath('userData'), 'data');
+        } catch (e) {
+          // If electron is not available, use process.env or a fallback
+          const userDataPath = process.env.APPDATA || process.env.HOME || process.cwd();
+          return path.join(userDataPath, 'ChunRP', 'data');
+        }
       }
+      
+      return resourcesPath;
+    } else {
+      // In server/production mode without Electron
+      // Use a data directory relative to the application or an environment variable
+      const dataPath = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+      return dataPath;
     }
-    
-    return resourcesPath;
   } else {
     // In development mode, use the project's data directory
     return path.join(__dirname, '../../data');
@@ -83,6 +92,11 @@ function ensureDataDirectory() {
 async function initializeDataDirectory() {
   if (!isPackaged()) {
     return; // No need to copy in development
+  }
+  
+  // Only try to copy if we're in an Electron environment with resourcesPath
+  if (!process.resourcesPath) {
+    return; // Not in Electron, skip copying
   }
   
   const userDataDir = getDataDirectory();

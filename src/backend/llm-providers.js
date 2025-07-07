@@ -30,6 +30,7 @@ const llmProviderFactory = {
 
       // Define models that support thinking budget
       const modelsWithThinkingBudget = [
+        "gemini-2.5-pro",
         "gemini-2.5-pro-preview-05-06",
         "gemini-2.5-flash-preview-04-17",
         "gemini-2.5-flash-preview-05-20"
@@ -618,7 +619,8 @@ const modelConfigurations = {
     { id: "rekaai/reka-flash-3:free", name: "Reka Flash 3", free: true },
     { id: "moonshotai/moonlight-16b-a3b-instruct:free", name: "Moonlight 16B", free: true },
     { id: "cognitivecomputations/dolphin3.0-mistral-24b:free", name: "Dolphin 3.0 Mistral 24B", free: true },
-    { id: "tngtech/deepseek-r1t-chimera:free", name: "DeepSeek R1T Chimera (Free)", free: true }
+    { id: "tngtech/deepseek-r1t-chimera:free", name: "DeepSeek R1T Chimera (Free)", free: true },
+    { id: "minimax/minimax-m1:extended", name: "MiniMax M1 Extended", free: true }
   ],
   huggingface: [
     { id: "meta-llama/Llama-3.3-70B-Instruct", name: "Llama 3.3 70B Instruct", provider: "nebius" },
@@ -630,6 +632,7 @@ const modelConfigurations = {
     { id: "Sao10K/L3-8B-Lunaris-v1", name: "L3 8B Lunaris v1", provider: "novita" }
   ],
   gemini: [
+    { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
     { id: "gemini-2.5-pro-preview-05-06", name: "Gemini 2.5 Pro Preview" },
     { id: "gemini-2.5-flash-preview-04-17", name: "Gemini 2.5 Flash Preview 04-17" },
     { id: "gemini-2.5-flash-preview-05-20", name: "Gemini 2.5 Flash Preview 05-20" },
@@ -652,7 +655,7 @@ const modelConfigurations = {
     { id: "open-mistral-nemo", name: "Open Mistral Nemo" }
   ],
   cohere: [
-    { id: "command-a-03-2025", name: "Command R+ 03-2025", free: true },
+    { id: "command-a-03-2025", name: "Command A 03-2025", free: true },
     { id: "command-r7b-12-2024", name: "Command R7B 12-2024", free: true },
     { id: "command-r-plus-08-2024", name: "Command R Plus 08-2024", free: true },
     { id: "command-r-08-2024", name: "Command R 08-2024", free: true },
@@ -665,8 +668,10 @@ const modelConfigurations = {
     { id: "ArliAI/QwQ-32B-ArliAI-RpR-v1", name: "ArliAI QwQ 32B RPR v1" },
     { id: "microsoft/MAI-DS-R1-FP8", name: "Microsoft MAI-DS R1 FP8" },
     { id: "tngtech/DeepSeek-R1T-Chimera", name: "TNG DeepSeek R1T Chimera" },
+    { id: "tngtech/DeepSeek-TNG-R1T2-Chimera", name: "TNG DeepSeek TNG R1T2 Chimera" },
     { id: "Qwen/Qwen3-235B-A22B", name: "Qwen3-235B-A22B" },
-    { id: "chutesai/Llama-4-Maverick-17B-128E-Instruct-FP8", name: "Llama-4 Maverick 17B 128E Instruct FP8" }
+    { id: "chutesai/Llama-4-Maverick-17B-128E-Instruct-FP8", name: "Llama-4 Maverick 17B 128E Instruct FP8" },
+    { id: "MiniMaxAI/MiniMax-M1-80k", name: "MiniMax M1 80K" }
   ],
   nvidia: [
     { id: "nvidia/llama-3.3-nemotron-super-49b-v1", name: "Llama 3.3 Nemotron Super 49B" },

@@ -90,6 +90,16 @@ app.get('/api/logs', (req, res) => {
     if (idx !== -1) sseClients.splice(idx, 1);
   });
 });
+
+// Health check endpoint for connection monitoring
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: Date.now(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage()
+  });
+});
 // --- SSE LOG BROADCAST SETUP ---
 
 
@@ -310,7 +320,7 @@ app.delete('/api/characters/:name', (req, res) => {
 // Generate chat response
 app.post('/api/chat', async (req, res) => {
   try {
-    const { characterName, message, settings } = req.body;
+    const { characterName, message, messageId, settings } = req.body;
 
     // Basic check
     if (!characterName || !message) {
@@ -709,3 +719,4 @@ function saveCache() {
   // Clear dirty set after saving
   dirtyCharacters.clear();
 }
+

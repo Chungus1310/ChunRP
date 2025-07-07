@@ -1,3 +1,190 @@
+// --- CONNECTION MONITORING & TOAST SYSTEM ---
+let connectionStatus = {
+  isConnected: true,
+  lastHeartbeat: Date.now(),
+  retryCount: 0,
+  maxRetries: 5
+};
+
+// Device detection utility
+function isMobile() {
+  return window.innerWidth <= 768;
+}
+
+// Toast notification system
+function displayToast(message, type = 'info', duration = 4000) {
+  // Remove existing toast if any
+  const existingToast = document.querySelector('.toast-notification');
+  if (existingToast) {
+    existingToast.remove();
+  }
+
+  const toast = document.createElement('div');
+  toast.className = `toast-notification toast-${type}`;
+  toast.innerHTML = `
+    <div class="toast-content">
+      <span class="toast-message">${message}</span>
+      <button class="toast-close">&times;</button>
+    </div>
+  `;
+
+  document.body.appendChild(toast);
+
+  // Show toast
+  setTimeout(() => toast.classList.add('show'), 100);
+
+  // Auto-hide after duration
+  setTimeout(() => hideToast(toast), duration);
+
+  // Close button functionality
+  toast.querySelector('.toast-close').addEventListener('click', () => hideToast(toast));
+}
+
+function hideToast(toast) {
+  toast.classList.remove('show');
+  setTimeout(() => {
+    if (toast.parentNode) {
+      toast.parentNode.removeChild(toast);
+    }
+  }, 300);
+}
+
+// Connection monitoring
+function updateConnectionStatus(isConnected) {
+  connectionStatus.isConnected = isConnected;
+  connectionStatus.lastHeartbeat = Date.now();
+  
+  const statusIndicator = document.querySelector('.connection-status');
+  if (statusIndicator) {
+    statusIndicator.classList.toggle('connected', isConnected);
+    statusIndicator.classList.toggle('disconnected', !isConnected);
+    statusIndicator.title = isConnected ? 'Connected' : 'Disconnected';
+  }
+}
+
+// Heartbeat check
+async function performHeartbeat() {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    
+    const response = await fetch('/api/health', {
+      method: 'GET',
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      if (!connectionStatus.isConnected) {
+        displayToast('Connection restored', 'success', 2000);
+      }
+      updateConnectionStatus(true);
+      connectionStatus.retryCount = 0;
+    } else {
+      throw new Error('Server returned error status');
+    }
+  } catch (error) {
+    updateConnectionStatus(false);
+    if (connectionStatus.retryCount === 0) {
+      displayToast('Connection lost - attempting to reconnect...', 'warning', 3000);
+    }
+    connectionStatus.retryCount++;
+  }
+}
+
+// Start heartbeat monitoring
+function startConnectionMonitoring() {
+  // Initial heartbeat
+  performHeartbeat();
+  
+  // More frequent heartbeat for mobile devices
+  const heartbeatInterval = isMobile() ? 5000 : 10000;
+  setInterval(performHeartbeat, heartbeatInterval);
+  
+  // Enhanced network change detection
+  window.addEventListener('online', async () => {
+    displayToast('Connection restored', 'success', 2000);
+    updateConnectionStatus(true);
+  });
+  
+  window.addEventListener('offline', () => {
+    displayToast('Connection lost', 'warning', 5000);
+    updateConnectionStatus(false);
+  });
+  
+  // Page visibility change (mobile app switching)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      // User returned to page, just perform heartbeat
+      setTimeout(performHeartbeat, 500);
+    }
+  });
+}
+
+// Request with timeout and retry logic
+async function makeRequest(url, options = {}, timeout = 30000, retries = 2) {
+  // Mobile-optimized timeouts and retries
+  const mobileTimeout = isMobile() ? Math.max(timeout, 60000) : timeout;
+  const mobileRetries = isMobile() ? Math.max(retries, 3) : retries;
+  
+  for (let attempt = 0; attempt <= mobileRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      
+      // Store the controller globally so it can be cancelled
+      if (url.includes('/api/chat') && options.method === 'POST') {
+        state.currentAbortController = controller;
+      }
+      
+      const timeoutId = setTimeout(() => controller.abort(), mobileTimeout);
+      
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      // Update connection status on successful request
+      if (!connectionStatus.isConnected) {
+        updateConnectionStatus(true);
+      }
+      
+      // Clear the abort controller on success
+      if (state.currentAbortController === controller) {
+        state.currentAbortController = null;
+      }
+      
+      return response;
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        console.warn(`Request timeout (attempt ${attempt + 1}/${mobileRetries + 1}):`, url);
+      } else {
+        console.warn(`Request failed (attempt ${attempt + 1}/${mobileRetries + 1}):`, error.message);
+      }
+      
+      // Clear the abort controller on error
+      if (state.currentAbortController) {
+        state.currentAbortController = null;
+      }
+      
+      if (attempt === mobileRetries) {
+        updateConnectionStatus(false);
+        throw error;
+      }
+      
+      // Exponential backoff with mobile-friendly delays
+      const delay = Math.min(Math.pow(2, attempt) * 2000, 10000);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
 // --- SSE LOG LISTENER ---
 function setupLogListener() {
   try {
@@ -35,7 +222,10 @@ const state = {
   chatHistory: [],
   settings: null,
   modelConfigurations: null,
-  isGenerating: false
+  isGenerating: false,
+  currentAbortController: null,
+  // Simple message ID counter for tracking
+  lastMessageId: 0
 };
 
 // DOM Elements - update the existing dom object to include new elements
@@ -124,6 +314,9 @@ function importChatHistoryFromFile(file) {
 // Initialize the application - update with emoji picker initialization
 async function initApp() {
   try {
+    // Start connection monitoring
+    startConnectionMonitoring();
+    
     // Load settings
     await loadSettings();
 
@@ -158,16 +351,35 @@ async function initApp() {
         e.target.value = '';
       });
     }
+    
+    // Add connection status indicator to the UI
+    addConnectionStatusIndicator();
+    
   } catch (error) {
     console.error('Error initializing app:', error);
-    showErrorMessage('Failed to initialize application. Please check the console for details.');
+    displayToast('Failed to initialize application. Please check the console for details.', 'error', 8000);
   }
+}
+
+// Add connection status indicator to UI
+function addConnectionStatusIndicator() {
+  // Check if indicator already exists
+  if (document.querySelector('.connection-status')) return;
+  
+  const indicator = document.createElement('div');
+  indicator.className = 'connection-status connected';
+  indicator.title = 'Connected';
+  indicator.innerHTML = '<div class="status-dot"></div>';
+  
+  // Add to header or appropriate location
+  const header = document.querySelector('.header') || document.querySelector('.chat-header') || document.body;
+  header.appendChild(indicator);
 }
 
 // Load settings from the server
 async function loadSettings() {
   try {
-    const response = await fetch(API.SETTINGS);
+    const response = await makeRequest(API.SETTINGS, {}, 10000, 1);
     state.settings = await response.json();
     return state.settings;
   } catch (error) {
@@ -198,11 +410,11 @@ async function loadSettings() {
 // Save settings to the server
 async function saveSettings(settings) {
   try {
-    const response = await fetch(API.SETTINGS, {
+    const response = await makeRequest(API.SETTINGS, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings)
-    });
+    }, 15000, 2);
     
     state.settings = await response.json();
     
@@ -213,7 +425,7 @@ async function saveSettings(settings) {
     return state.settings;
   } catch (error) {
     console.error('Error saving settings:', error);
-    showErrorMessage('Failed to save settings.');
+    displayToast('Failed to save settings.', 'error');
     throw error;
   }
 }
@@ -239,13 +451,13 @@ async function loadModelConfigurations() {
 // Load all characters
 async function loadCharacters() {
   try {
-    const response = await fetch(API.CHARACTERS);
+    const response = await makeRequest(API.CHARACTERS, {}, 10000, 1);
     state.characters = await response.json();
     renderCharacterList();
     return state.characters;
   } catch (error) {
     console.error('Error loading characters:', error);
-    showErrorMessage('Failed to load characters.');
+    displayToast('Failed to load characters.', 'error');
     return [];
   }
 }
@@ -334,6 +546,15 @@ async function selectCharacter(characterName) {
     dom.welcomeScreen.classList.add('hidden');
     dom.chatContainer.classList.remove('hidden');
     
+    // Fix sidebar state management - ensure sidebar is properly visible on desktop
+    if (!isMobile()) {
+      // On desktop, make sure sidebar is always visible after character selection
+      dom.sidebar.classList.remove('expanded');
+    } else {
+      // On mobile, collapse sidebar after character selection to show chat
+      dom.sidebar.classList.remove('expanded');
+    }
+    
     // Highlight the selected character in the list
     const characterCards = document.querySelectorAll('.character-card');
     characterCards.forEach(card => {
@@ -360,18 +581,18 @@ async function selectCharacter(characterName) {
 
   } catch (error) {
     console.error('Error selecting character:', error);
-    showErrorMessage('Failed to load character data.');
+    displayToast('Failed to load character data.', 'error');
   }
 }
 
 // Load chat history for the selected character
 async function loadChatHistory(characterName) {
   try {
-    const response = await fetch(`${API.CHAT}/${characterName}`);
+    const response = await makeRequest(`${API.CHAT}/${characterName}`, {}, 10000, 1);
     
-    // Check if the request was successful and content type is JSON
-    if (!response.ok || !response.headers.get("content-type")?.includes("application/json")) {
-       console.warn(`Failed to load valid chat history for ${characterName}, status: ${response.status}. Assuming empty history.`);
+    // Check if the request was successful and response is valid
+    if (!response.ok) {
+       console.warn(`Failed to load chat history for ${characterName}, status: ${response.status}. Assuming empty history.`);
        state.chatHistory = []; // Ensure state is empty array
        return [];
     }
@@ -400,13 +621,14 @@ async function saveChatHistory() {
   if (!state.activeCharacter) return;
   
   try {
-    await fetch(`${API.CHAT}/${state.activeCharacter.name}`, {
+    await makeRequest(`${API.CHAT}/${state.activeCharacter.name}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(state.chatHistory)
-    });
+    }, 15000, 2);
   } catch (error) {
     console.error('Error saving chat history:', error);
+    displayToast('Failed to save chat history.', 'warning');
   }
 }
 
@@ -416,9 +638,9 @@ async function clearChatHistory() {
   
   try {
     // Call the backend API to clear chat history (which now preserves the first message)
-    const response = await fetch(`${API.CHAT}/${state.activeCharacter.name}`, {
+    const response = await makeRequest(`${API.CHAT}/${state.activeCharacter.name}`, {
       method: 'DELETE'
-    });
+    }, 10000, 1);
     
     if (!response.ok) {
       throw new Error('Failed to clear chat history');
@@ -743,47 +965,106 @@ async function sendMessage() {
   if (!message || !state.activeCharacter || state.isGenerating) {
     return;
   }
+
+  // Generate unique message ID
+  const messageId = ++state.lastMessageId;
   
   try {
     // Add user message to chat history
-    state.chatHistory.push({ role: 'user', content: message });
+    state.chatHistory.push({ role: 'user', content: message, id: messageId });
     renderChatHistory();
     
-    // Clear input
+    // Clear input and show generating
     dom.messageInput.value = '';
-    
-    // Show generating indicator
     state.isGenerating = true;
     addGeneratingIndicator();
     
-    // Send message to server
-    const response = await fetch(API.CHAT, {
+    // Notify user about potential wait time for complex processing
+    displayToast('Starting response generation. Complex responses may take up to 5 minutes.', 'info', 6000);
+    
+    // Send message with longer timeout for mobile and include message ID
+    const response = await makeRequest(API.CHAT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         characterName: state.activeCharacter.name,
         message,
+        messageId, // Include message ID for server-side caching
         settings: state.settings
       })
-    });
+    }, 600000, 3); // 10 minute timeout, 3 retries for mobile
     
     const data = await response.json();
     
     // Remove generating indicator
     removeGeneratingIndicator();
     
-    // Add assistant response to chat history
-    state.chatHistory.push({ role: 'assistant', content: data.response });
-    renderChatHistory();
+    // Validate response
+    if (!data.response || typeof data.response !== 'string') {
+      throw new Error('Invalid response from server');
+    }
+    
+    // Check for duplicate before adding (in case recovery system already added it)
+    const lastMessage = state.chatHistory[state.chatHistory.length - 1];
+    const isDuplicate = lastMessage && 
+                       lastMessage.role === 'assistant' && 
+                       lastMessage.content === data.response;
+    
+    if (!isDuplicate) {
+      // Add assistant response to chat history
+      state.chatHistory.push({ role: 'assistant', content: data.response });
+      renderChatHistory();
+    }
     
     // Save chat history
     await saveChatHistory();
+    
   } catch (error) {
     console.error('Error sending message:', error);
     removeGeneratingIndicator();
-    showErrorMessage('Failed to generate response.');
+    
+    // Check if it was cancelled by user
+    if (error.name === 'AbortError' && !state.currentAbortController) {
+      // User cancelled - remove the user message that was added and cleanup
+      if (state.chatHistory.length > 0 && state.chatHistory[state.chatHistory.length - 1].role === 'user') {
+        state.chatHistory.pop();
+        renderChatHistory();
+      }
+      return; // Don't show error message for user cancellation
+    }
+    
+    // For connection errors, don't retry immediately
+    if (!error.message.includes('HTTP') && !connectionStatus.isConnected) {
+      displayToast('Message sent, waiting for response...', 'info', 5000);
+      state.isGenerating = false;
+      state.currentAbortController = null;
+      return;
+    }
+    
+    // For other errors, cleanup and show error
+    
+    // Remove the user message that failed to get a response
+    if (state.chatHistory.length > 0 && state.chatHistory[state.chatHistory.length - 1].role === 'user') {
+      state.chatHistory.pop();
+      renderChatHistory();
+    }
+    
+    // Show appropriate error message
+    let errorMessage = 'Failed to generate response.';
+    if (error.name === 'AbortError') {
+      errorMessage = 'Request timed out after 10 minutes. Please try a shorter or simpler message.';
+    } else if (error.message.includes('HTTP 429')) {
+      errorMessage = 'Server is busy. Please wait a moment and try again.';
+    } else if (error.message.includes('HTTP 5')) {
+      errorMessage = 'Server error. Please try again in a moment.';
+    } else if (!connectionStatus.isConnected) {
+      errorMessage = 'No connection to server. Please check your internet connection.';
+    }
+    
+    displayToast(errorMessage, 'error', 8000);
   } finally {
     state.isGenerating = false;
+    state.currentAbortController = null;
   }
 }
 
@@ -793,18 +1074,64 @@ function addGeneratingIndicator() {
   indicatorDiv.className = 'message assistant generating';
   indicatorDiv.innerHTML = `
     <div class="message-bubble">
-      <div class="loading"></div> Generating...
+      <div class="loading"></div> 
+      <div class="generating-text">
+        <span class="generating-main">Generating response...</span>
+        <span class="generating-detail">Processing memories, context, and model inference</span>
+        <span class="generating-time">This may take up to 5 minutes for complex responses</span>
+      </div>
+      <button class="cancel-generation-btn" title="Cancel generation">
+        <i class="ri-close-line"></i>
+      </button>
     </div>
   `;
   
   dom.chatMessages.appendChild(indicatorDiv);
   scrollToBottom();
+  
+  // Add cancel button functionality
+  const cancelBtn = indicatorDiv.querySelector('.cancel-generation-btn');
+  cancelBtn.addEventListener('click', () => {
+    if (state.currentAbortController) {
+      state.currentAbortController.abort();
+      displayToast('Response generation cancelled', 'info', 3000);
+    }
+  });
+  
+  // Add a progress timer to show elapsed time
+  const startTime = Date.now();
+  const timeSpan = indicatorDiv.querySelector('.generating-time');
+  
+  const timeInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const minutes = Math.floor(elapsed / 60);
+    const seconds = elapsed % 60;
+    
+    if (minutes > 0) {
+      timeSpan.textContent = `Processing for ${minutes}m ${seconds}s...`;
+    } else {
+      timeSpan.textContent = `Processing for ${seconds}s...`;
+    }
+    
+    // If it's been over 2 minutes, show encouraging message
+    if (elapsed > 120) {
+      timeSpan.textContent += ' (Complex response in progress, please wait)';
+    }
+  }, 1000);
+  
+  // Store the interval so we can clear it when removing the indicator
+  indicatorDiv.dataset.timeInterval = timeInterval;
 }
 
 // Remove the generating indicator
 function removeGeneratingIndicator() {
   const indicator = document.querySelector('.message.generating');
   if (indicator) {
+    // Clear the timer interval if it exists
+    const timeInterval = indicator.dataset.timeInterval;
+    if (timeInterval) {
+      clearInterval(parseInt(timeInterval));
+    }
     indicator.remove();
   }
 }
@@ -1121,7 +1448,8 @@ function populateModelOptions(selectedProvider) {
   // Define models for each provider
   const providerModels = {
     gemini: [
-      { value: 'gemini-2.5-pro-preview-05-06', name: 'Gemini 2.5 Pro' },
+      { value: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+      { value: 'gemini-2.5-pro-preview-05-06', name: 'Gemini 2.5 Pro Preview' },
       { value: 'gemini-2.5-flash-preview-04-17', name: 'Gemini 2.5 Flash Preview 04-17' },
       { value: 'gemini-2.5-flash-preview-05-20', name: 'Gemini 2.5 Flash Preview 05-20' },
       { value: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
@@ -1144,7 +1472,8 @@ function populateModelOptions(selectedProvider) {
       { value: 'rekaai/reka-flash-3:free', name: 'Reka Flash 3' },
       { value: 'moonshotai/moonlight-16b-a3b-instruct:free', name: 'Moonlight 16B' },
       { value: 'cognitivecomputations/dolphin3.0-mistral-24b:free', name: 'Dolphin 3.0 (24B)' },
-      { value: 'tngtech/deepseek-r1t-chimera:free', name: 'DeepSeek R1T Chimera (Free)' }
+      { value: 'tngtech/deepseek-r1t-chimera:free', name: 'DeepSeek R1T Chimera (Free)' },
+      { value: 'minimax/minimax-m1:extended', name: 'MiniMax M1 Extended' }
     ],
     mistral: [
       { value: 'mistral-large-latest', name: 'Mistral Large' },
@@ -1164,21 +1493,23 @@ function populateModelOptions(selectedProvider) {
       { value: 'Sao10K/L3-8B-Lunaris-v1', name: 'L3 8B Lunaris v1' }
     ],
     cohere: [
-      { value: 'command-a-03-2025', name: 'Command R+ 03-2025' },
+      { value: 'command-a-03-2025', name: 'Command A 03-2025' },
       { value: 'command-r7b-12-2024', name: 'Command R7B 12-2024' },
       { value: 'command-r-plus-08-2024', name: 'Command R Plus 08-2024' },
       { value: 'command-r-08-2024', name: 'Command R 08-2024' },
       { value: 'command-nightly', name: 'Command Nightly' }    ],      
     chutes: [
-      { value: 'deepseek-ai/DeepSeek-R1', name: 'DeepSeek R1' },
-      { value: 'deepseek-ai/DeepSeek-R1-0528', name: 'DeepSeek R1 (0528)' },
-      { value: 'deepseek-ai/DeepSeek-R1-0528-Qwen3-8B', name: 'DeepSeek R1 Qwen3 8B' },
-      { value: 'deepseek-ai/DeepSeek-V3-0324', name: 'DeepSeek V3 (0324)' },
-      { value: 'ArliAI/QwQ-32B-ArliAI-RpR-v1', name: 'ArliAI QwQ 32B RPR v1' },
-      { value: 'microsoft/MAI-DS-R1-FP8', name: 'Microsoft MAI-DS R1 FP8' },
-      { value: 'tngtech/DeepSeek-R1T-Chimera', name: 'TNG DeepSeek R1T Chimera' },
-      { value: 'Qwen/Qwen3-235B-A22B', name: 'Qwen3-235B-A22B' },
-      { value: 'chutesai/Llama-4-Maverick-17B-128E-Instruct-FP8', name: 'Llama-4 Maverick 17B 128E Instruct FP8' }
+      { id: "deepseek-ai/DeepSeek-R1", name: "DeepSeek R1" },
+      { id: "deepseek-ai/DeepSeek-R1-0528", name: "DeepSeek R1 (0528)" },
+      { id: "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B", name: "DeepSeek R1 Qwen3 8B" },
+      { id: "deepseek-ai/DeepSeek-V3-0324", name: "DeepSeek V3 (0324)" },
+      { id: "ArliAI/QwQ-32B-ArliAI-RpR-v1", name: "ArliAI QwQ 32B RPR v1" },
+      { id: "microsoft/MAI-DS-R1-FP8", name: "Microsoft MAI-DS R1 FP8" },
+      { id: "tngtech/DeepSeek-R1T-Chimera", name: "TNG DeepSeek R1T Chimera" },
+      { id: "tngtech/DeepSeek-TNG-R1T2-Chimera", name: "TNG DeepSeek TNG R1T2 Chimera" },
+      { id: "Qwen/Qwen3-235B-A22B", name: "Qwen3-235B-A22B" },
+      { id: "chutesai/Llama-4-Maverick-17B-128E-Instruct-FP8", name: "Llama-4 Maverick 17B 128E Instruct FP8" },
+      { id: "MiniMaxAI/MiniMax-M1-80k", name: "MiniMax M1 80K" }
     ],
     nvidia: [
       { value: 'nvidia/llama-3.3-nemotron-super-49b-v1', name: 'Llama 3.3 Nemotron Super 49B' },
@@ -1917,37 +2248,20 @@ function setupEventListeners() {
   });
 }
 
-// Show error message
+// Show error message (now using toast system)
 function showErrorMessage(message) {
-  // alert(message); // Replace alert
-  displayNotification(message, 'error');
+  displayToast(message, 'error');
 }
 
-// Show success message
+// Show success message (now using toast system)
 function showSuccessMessage(message) {
-  // alert(message); // Replace alert
-  displayNotification(message, 'success');
+  displayToast(message, 'success');
 }
 
-// Display notification message
+// Display notification message (deprecated, use displayToast instead)
 function displayNotification(message, type = 'info') { // type can be 'info', 'success', 'error'
-  const notificationArea = document.getElementById('notification-area');
-  if (!notificationArea) return; // Exit if area doesn't exist
-
-  const notificationDiv = document.createElement('div');
-  notificationDiv.className = `notification ${type}`;
-  notificationDiv.textContent = message;
-
-  notificationArea.appendChild(notificationDiv);
-
-  // Automatically remove the notification after a shorter time
-  setTimeout(() => {
-    notificationDiv.classList.add('fade-out');
-    // Remove the element after the fade-out transition completes
-    notificationDiv.addEventListener('transitionend', () => {
-      notificationDiv.remove();
-    });
-  }, 1000); // Display for 1 second instead of 5 seconds
+  // For backward compatibility, redirect to toast system
+  displayToast(message, type);
 }
 
 // Initialize emoji picker
@@ -2059,8 +2373,8 @@ async function regenerateResponse() {
     state.isGenerating = true;
     addGeneratingIndicator();
     
-    // Send request to regenerate
-    const response = await fetch(API.CHAT, {
+    // Send request to regenerate with timeout and retry logic
+    const response = await makeRequest(API.CHAT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2068,9 +2382,14 @@ async function regenerateResponse() {
         message: lastUserMessage,
         settings: state.settings
       })
-    });
+    }, 300000, 1); // 5 minute timeout, 1 retry only (total max 10 minutes)
     
     const data = await response.json();
+    
+    // Validate response
+    if (!data.response || typeof data.response !== 'string') {
+      throw new Error('Invalid response from server');
+    }
     
     // Remove generating indicator
     removeGeneratingIndicator();
@@ -2083,9 +2402,25 @@ async function regenerateResponse() {
   } catch (error) {
     console.error('Error regenerating response:', error);
     removeGeneratingIndicator();
-    showErrorMessage('Failed to regenerate response.');
+    
+    // Check if it was cancelled by user
+    if (error.name === 'AbortError' && !state.currentAbortController) {
+      displayToast('Response regeneration cancelled', 'info', 3000);
+      return; // Don't show error message for user cancellation
+    }
+    
+    // Show appropriate error message
+    let errorMessage = 'Failed to regenerate response.';
+    if (error.name === 'AbortError') {
+      errorMessage = 'Request timed out after 5 minutes. Please try again.';
+    } else if (!connectionStatus.isConnected) {
+      errorMessage = 'No connection to server. Please check your internet connection.';
+    }
+    
+    displayToast(errorMessage, 'error', 5000);
   } finally {
     state.isGenerating = false;
+    state.currentAbortController = null;
   }
 }
 
@@ -2364,13 +2699,19 @@ function toggleMobileMenu(event) {
   // Prevent the event from propagating to document click handler
   event.stopPropagation();
   
-  // Toggle the expanded class on sidebar
-  dom.sidebar.classList.toggle('expanded');
+  // Only toggle sidebar on mobile devices
+  if (isMobile()) {
+    // Toggle the expanded class on sidebar
+    dom.sidebar.classList.toggle('expanded');
+  }
 }
 
 // Handle mobile tab navigation
 function handleMobileTabChange(selectedTabBtn) {
   if (!selectedTabBtn) return;
+  
+  // Only handle mobile tab changes on mobile devices
+  if (!isMobile()) return;
   
   // Update active button
   const allTabBtns = dom.mobileNavFooter.querySelectorAll('.mobile-tab-btn');
