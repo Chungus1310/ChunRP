@@ -18,8 +18,16 @@ function initializeCohere(apiKey) {
 async function rerankWithJina(query, memories, settings = {}) {
   const apiKey = settings.apiKeys?.jina || 'jina_52e5dc70ec8d4ceba5b05b86e474c32bWHXw1kGKJQhCQv51G9dYByIQcftF';
   
+  // Ensure apiKey is a string (handle array case)
+  let realApiKey = apiKey;
+  if (Array.isArray(apiKey)) {
+    realApiKey = apiKey[0];
+  }
+  if (typeof realApiKey !== 'string') {
+    throw new Error('Jina API key must be a string, got: ' + typeof realApiKey);
+  }
   
-  if (!apiKey) {
+  if (!realApiKey) {
     throw new Error('Jina API key not provided');
   }
 
@@ -43,7 +51,7 @@ async function rerankWithJina(query, memories, settings = {}) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${realApiKey}`
       }
     };
 
@@ -88,11 +96,20 @@ async function rerankWithJina(query, memories, settings = {}) {
 async function rerankWithCohere(query, memories, settings = {}) {
   const apiKey = settings.apiKeys?.cohere;
   
-  if (!apiKey) {
+  // Ensure apiKey is a string (handle array case)
+  let realApiKey = apiKey;
+  if (Array.isArray(apiKey)) {
+    realApiKey = apiKey[0];
+  }
+  if (typeof realApiKey !== 'string') {
+    throw new Error('Cohere reranking API key must be a string, got: ' + typeof realApiKey);
+  }
+  
+  if (!realApiKey) {
     throw new Error('Cohere API key not provided');
   }
 
-  initializeCohere(apiKey);
+  initializeCohere(realApiKey);
 
   if (!cohereClient) {
     throw new Error('Failed to initialize Cohere client');
@@ -125,7 +142,16 @@ async function rerankWithCohere(query, memories, settings = {}) {
 async function rerankWithNvidia(query, memories, settings = {}) {
   const apiKey = settings.apiKeys?.nvidia;
   
-  if (!apiKey) {
+  // Ensure apiKey is a string (handle array case)
+  let realApiKey = apiKey;
+  if (Array.isArray(apiKey)) {
+    realApiKey = apiKey[0];
+  }
+  if (typeof realApiKey !== 'string') {
+    throw new Error('NVIDIA reranking API key must be a string, got: ' + typeof realApiKey);
+  }
+  
+  if (!realApiKey) {
     throw new Error('NVIDIA API key not provided');
   }
 
@@ -145,7 +171,7 @@ async function rerankWithNvidia(query, memories, settings = {}) {
   };
 
   const headers = {
-    "Authorization": `Bearer ${apiKey}`,
+    "Authorization": `Bearer ${realApiKey}`,
     "Accept": "application/json",
     "Content-Type": "application/json"
   };

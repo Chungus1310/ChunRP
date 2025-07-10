@@ -389,6 +389,11 @@ const llmProviderFactory = {
       const apiKey = keyInfo.keys[currentIndex];
       
       try {
+        // Debug: Ensure apiKey is a string
+        if (typeof apiKey !== 'string') {
+          console.error('Mistral API key is not a string:', apiKey, typeof apiKey);
+          throw new Error('Mistral API key must be a string, got: ' + typeof apiKey);
+        }
         const client = new Mistral({apiKey});
 
         const chatResponse = await client.chat.complete({

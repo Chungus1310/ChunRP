@@ -100,7 +100,17 @@ async function generateEmbedding(text, settings = {}) {
       const { GoogleGenAI } = await import('@google/genai');
       const apiKey = settings.apiKeys?.gemini;
       if (!apiKey) throw new Error('Gemini embedding error: API key is missing.');
-      const ai = new GoogleGenAI({ apiKey });
+      
+      // Ensure apiKey is a string (handle array case)
+      let realApiKey = apiKey;
+      if (Array.isArray(apiKey)) {
+        realApiKey = apiKey[0];
+      }
+      if (typeof realApiKey !== 'string') {
+        throw new Error('Gemini embedding API key must be a string, got: ' + typeof realApiKey);
+      }
+      
+      const ai = new GoogleGenAI({ apiKey: realApiKey });
       const response = await ai.models.embedContent({
         model: 'gemini-embedding-exp-03-07',
         contents: text,
@@ -120,8 +130,18 @@ async function generateEmbedding(text, settings = {}) {
       const OpenAI = (await import('openai')).default;
       const apiKey = settings.apiKeys?.nvidia;
       if (!apiKey) throw new Error('NVIDIA embedding error: API key is missing.');
+      
+      // Ensure apiKey is a string (handle array case)
+      let realApiKey = apiKey;
+      if (Array.isArray(apiKey)) {
+        realApiKey = apiKey[0];
+      }
+      if (typeof realApiKey !== 'string') {
+        throw new Error('NVIDIA embedding API key must be a string, got: ' + typeof realApiKey);
+      }
+      
       const openai = new OpenAI({
-        apiKey,
+        apiKey: realApiKey,
         baseURL: 'https://integrate.api.nvidia.com/v1',
       });
       const response = await openai.embeddings.create({
@@ -146,8 +166,16 @@ async function generateEmbedding(text, settings = {}) {
       if (!apiKey) {
         throw new Error("Mistral embedding error: API key is missing.");
       }
-      const { Mistral } = await import('@mistralai/mistralai');
-      const client = new Mistral({ apiKey });
+      // Ensure apiKey is a string (handle array case)
+      let realApiKey = apiKey;
+      if (Array.isArray(apiKey)) {
+        realApiKey = apiKey[0];
+      }
+      if (typeof realApiKey !== 'string') {
+        console.error('Mistral embedding API key is not a string:', realApiKey, typeof realApiKey);
+        throw new Error('Mistral embedding API key must be a string, got: ' + typeof realApiKey);
+      }
+      const client = new Mistral({ apiKey: realApiKey });
       const inputs = Array.isArray(text) ? text : [text];
       const embeddingsBatchResponse = await client.embeddings.create({
         model: 'mistral-embed',
@@ -168,7 +196,17 @@ async function generateEmbedding(text, settings = {}) {
       const { CohereClient } = await import('cohere-ai');
       const apiKey = settings.apiKeys?.cohere;
       if (!apiKey) throw new Error('Cohere embedding error: API key is missing.');
-      const cohere = new CohereClient({ token: apiKey });
+      
+      // Ensure apiKey is a string (handle array case)
+      let realApiKey = apiKey;
+      if (Array.isArray(apiKey)) {
+        realApiKey = apiKey[0];
+      }
+      if (typeof realApiKey !== 'string') {
+        throw new Error('Cohere embedding API key must be a string, got: ' + typeof realApiKey);
+      }
+      
+      const cohere = new CohereClient({ token: realApiKey });
       const response = await cohere.v2.embed({
         texts: Array.isArray(text) ? text : [text],
         model: 'embed-v4.0',
