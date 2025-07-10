@@ -26,9 +26,10 @@ ChunRP is an **immersive local roleplay chatbot** that brings your AI characters
 - 🎯 **Memory Reranking** - Powered by Jina, Cohere, and NVIDIA for precision memory recall
 - ♻️ **Memory Recycling** - Rebuild character memories from scratch with progress tracking
 - 🗄️ **SQLite Database** - Fast, reliable data storage with ACID compliance and proper relationships
-- 🤖 **9+ AI Providers** - Support for latest models including DeepSeek R1, Gemini 2.5, QWQ 32B, and more
+- 🔄 **Smart API Key Rotation** - Multiple API keys per provider with automatic rotation and fallback
+- 🤖 **7 Free AI Providers** - All models completely free with extensive selection
 - 🏠 **100% Local** - Your conversations stay private on your machine
-- 📱 **Mobile Responsive** - Works beautifully on desktop, tablet, and mobile
+- 📱 **Mobile Responsive** - Works beautifully on desktop, tablet, and mobile with optimized UI
 - 🎨 **Beautiful Themes** - Dark/Light themes with customizable bubble styles
 - ⚡ **Real-time Experience** - Instant responses with streaming support and robust reasoning model handling
 
@@ -36,84 +37,173 @@ ChunRP is an **immersive local roleplay chatbot** that brings your AI characters
 
 ## ✨ Features
 
+### 🔄 Smart Multiple API Key System
+
+**🚀 ADVANCED RELIABILITY FEATURES**
+- **Multiple Keys per Provider** - Add several API keys for each service to maximize uptime
+- **Automatic Key Rotation** - Round-robin system cycles through keys to prevent rate limits
+- **Smart Fallback** - If one key fails, instantly switches to the next available key
+- **Status Tracking** - Real-time monitoring shows which keys are working, failed, or rate-limited
+- **Error Recovery** - Automatically retries failed requests with different keys
+- **Load Balancing** - Distributes requests across keys for optimal performance
+
+This system ensures your conversations never get interrupted by rate limits or key failures!
+
 ### 🎭 Character Management
 - **Rich Character Profiles**: Create detailed characters with personas, appearances, scenarios, and custom system prompts
-- **Avatar Support**: Add custom avatars via URL or use the default avatar
-- **Character Import/Export**: Share characters or backup your creations
-- **Settings Override**: Customize LLM settings per character for unique personalities
-- **SQLite Storage**: Characters are now stored in a fast, reliable SQLite database
+- **Avatar Support**: Add custom avatars via URL or use the default avatar with fallback handling
+- **Character Import/Export**: Share characters or backup your creations as JSON files
+- **Per-Character Settings**: Customize LLM settings individually for each character's unique personality
+- **Character Search & Selection**: Fast character lookup in sidebar with mobile-optimized selector overlay
+- **SQLite Storage**: Characters stored in fast, reliable SQLite database with proper relationships
 
 ### 🧠 Advanced Memory System
 
 <div align="center">
 
-> **🚀 NEW FEATURES**
+> **🚀 LATEST FEATURES**
 > - **Memory Reranking** with Jina, Cohere, and NVIDIA APIs
 > - **Memory Recycling** with real-time progress tracking
 > - **Reasoning Model Support** with robust JSON extraction
 > - **SQLite Database** for improved performance and reliability
+> - **Memory Viewer** with side panel for browsing and managing memories
 
 </div>
 
 - **Vector Memory Storage**: Characters remember conversations using advanced embedding technology with multiple provider support
 - **Intelligent Reranking**: Memories are reranked using state-of-the-art reranking models for perfect context retrieval
-- **Memory Recycling**: Complete memory regeneration with progress toasts and proper timeouts
+- **Memory Recycling**: Complete memory regeneration with progress toasts, timeout handling, and error recovery
+- **Memory Viewer**: Browse, search, and manage character memories through dedicated side panel
 - **Emotional Analysis**: Characters understand and remember emotional context with LLM-powered analysis
-- **Smart Retrieval**: Relevant memories are automatically surfaced with LLM summaries, HyDE, or averaging methods
+- **Smart Retrieval**: Relevant memories automatically surfaced with LLM summaries, HyDE, or averaging methods
 - **Robust Processing**: Handles reasoning model thinking blocks and malformed responses gracefully
 - **Progress Tracking**: Real-time memory creation progress with detailed status updates
-- **Database Integration**: Chat history stored in SQLite with efficient querying and relationships
+- **Database Integration**: Chat history and memories stored in SQLite with efficient querying and relationships
 
 ### 🔄 Memory Reranking System
 
-- **Multiple Providers**: Jina AI, Cohere, and NVIDIA reranking APIs
-- **Automatic Fallback**: Seamless provider switching when one fails
-- **Configurable**: Choose your preferred reranking provider and API key
-- **Performance Optimized**: Smart query processing for optimal retrieval accuracy
+- **Multiple Providers**: Jina AI, Cohere, and NVIDIA reranking APIs for maximum compatibility
+- **Automatic Fallback**: Seamless provider switching when one fails for uninterrupted experience
+- **Configurable**: Choose your preferred reranking provider and manage API keys easily
+- **Performance Optimized**: Smart query processing for optimal retrieval accuracy and speed
 
-### 🤖 Multi-Provider LLM Support
+### 🤖 Multi-Provider LLM Support - All Models FREE!
 
 <details>
-<summary><strong>🌐 Supported Providers & Latest Models (Click to expand)</strong></summary>
+<summary><strong>🌐 Supported Providers & FREE Models (Click to expand)</strong></summary>
 
-| Provider | Featured Models | Free Tier | Reasoning Models |
-|----------|-----------------|-----------|------------------|
-| **🔥 Chutes** | DeepSeek R1, R1-0528, ArliAI QwQ 32B, TNG Chimera | ✅ | ✅ DeepSeek R1 family |
-| **🔥 Gemini** | Gemini 2.5 Pro, 2.0 Flash, **2.5 Flash Thinking** | ✅ | ✅ Thinking models |
-| **🔥 OpenRouter** | DeepSeek R1, QWQ 32B RPR, MAI-DS R1, Gemini 2.0 Flash | ✅ | ✅ Multiple reasoning models |
-| **NVIDIA** | Llama 4 Scout/Maverick, QWQ 32B, Nemotron family | ✅ | ✅ QWQ 32B |
-| **Hugging Face** | Llama 3.3 70B, DeepSeek V3, Dolphin Mixtral family | ✅ | ❌ |
-| **Cohere** | Command R+ 03-2025, Command R7B, Command R Plus | ✅ | ❌ |
-| **Mistral** | Mistral Large, Magistral Medium/Small, Open Nemo | ✅ | ✅ Magistral family |
-| **Requesty (No longer free)** | Gemini 2.0 models, Gemma 3 27B, L3-8B Lunaris | ❌ | ✅ Gemini Thinking |
+| Provider | Featured Models | Reasoning Models | Multiple Keys |
+|----------|-----------------|------------------|---------------|
+| **🔥 Gemini** | Gemini 2.5 Pro, 2.0 Flash, **2.5 Flash Thinking** | ✅ Thinking models | ✅ |
+| **🔥 OpenRouter** | DeepSeek R1, QWQ 32B, MAI-DS R1, Gemini 2.0 Flash | ✅ Multiple reasoning models | ✅ |
+| **🔥 Chutes** | DeepSeek R1, ArliAI QwQ 32B, TNG Chimera, Llama 4 | ✅ DeepSeek R1 family | ✅ |
+| **NVIDIA** | Llama 4 Scout/Maverick, QWQ 32B, Nemotron family | ✅ QWQ 32B, DeepSeek R1 | ✅ |
+| **Hugging Face** | Llama 3.3 70B, DeepSeek V3, Dolphin Mixtral family | ❌ | ✅ |
+| **Cohere** | Command A 03-2025, Command R7B, Command R Plus | ❌ | ✅ |
+| **Mistral** | Mistral Large, Magistral Medium/Small, Open Nemo | ✅ Magistral family | ✅ |
 
-**🔥 Popular Reasoning Models:**
-- DeepSeek R1 & R1-0528 (Chutes, OpenRouter, NVIDIA)
-- Gemini 2.5 Flash Thinking (Gemini, Requesty)
-- QWQ 32B (NVIDIA, OpenRouter)
-- ArliAI QwQ 32B RPR (Chutes, OpenRouter)
-- MAI-DS R1 (OpenRouter)
+**🔥 Popular FREE Reasoning Models:**
+- **DeepSeek R1 & R1-0528** (Chutes, OpenRouter, NVIDIA)
+- **Gemini 2.5 Pro Thinking** (Gemini)
+- **QWQ 32B** (NVIDIA, OpenRouter, Chutes)
+- **ArliAI QwQ 32B** (Chutes, OpenRouter)
+- **MAI-DS R1** (OpenRouter)
+- **Llama 4 Scout/Maverick** (NVIDIA, Chutes)
+
+**📋 Complete Model List:**
+
+**Gemini Models:**
+- gemini-2.5-pro, gemini-2.5-flash, gemini-2.0-flash
+- gemini-2.0-flash-thinking-exp-01-21
+- gemini-1.5-pro, gemini-1.5-flash
+- learnlm-2.0-flash-experimental
+
+**OpenRouter Models:**
+- google/gemini-2.0-flash-exp:free
+- microsoft/mai-ds-r1:free
+- deepseek/deepseek-chat-v3-0324:free
+- arliai/qwq-32b-arliai-rpr-v1:free
+
+**Chutes Models:**
+- deepseek-ai/DeepSeek-R1, DeepSeek-R1-0528
+- ArliAI/QwQ-32B-ArliAI-RpR-v1
+- tngtech/DeepSeek-R1T-Chimera
+- chutesai/Llama-4-Maverick-17B-128E-Instruct-FP8
+- MiniMaxAI/MiniMax-M1-80k
+
+**NVIDIA Models:**
+- nvidia/llama-3.3-nemotron-super-49b-v1
+- meta/llama-4-scout-17b-16e-instruct
+- meta/llama-4-maverick-17b-128e-instruct
+- qwen/qwq-32b, deepseek-ai/deepseek-r1
+
+**Hugging Face Models:**
+- meta-llama/Llama-3.3-70B-Instruct
+- deepseek-ai/DeepSeek-V3-0324
+- cognitivecomputations/dolphin-2.9.2-mixtral-8x22b
+- Sao10K/L3-8B-Stheno-v3.2, Sao10K/L3-8B-Lunaris-v1
+
+**Mistral Models:**
+- mistral-large-latest, mistral-medium-latest
+- magistral-medium-latest, magistral-small-latest
+- open-mistral-nemo
+
+**Cohere Models:**
+- command-a-03-2025, command-r7b-12-2024
+- command-r-plus-08-2024, command-r-08-2024
 
 </details>
 
 ### 💬 Enhanced Chat Features
-- **Markdown Support**: Rich text formatting in messages
-- **Message Actions**: Edit, delete, regenerate any message
-- **Persistent History**: Conversation history stored in SQLite database with fast retrieval
-- **Chat Import/Export**: Backup and restore individual character conversations
-- **Emoji Picker**: Express yourself with emojis
-- **Mobile Optimized**: Seamless experience on any device
-- **Reasoning Model Support**: Handles thinking blocks and complex reasoning outputs
-- **Real-time Sync**: All changes automatically saved to database
+- **Rich Message Support**: Full markdown support with proper rendering
+- **Message Management**: Edit, delete, regenerate any message in conversation
+- **Smart Regeneration**: Regenerate last AI response with one click
+- **Persistent History**: All conversations stored in SQLite database with fast retrieval
+- **Chat Import/Export**: Backup and restore individual character conversations as JSON
+- **Chat History Clear**: Clear conversation history while preserving character's first message
+- **Emoji Picker**: Built-in emoji picker for expressive conversations
+- **Mobile Optimized**: Auto-resizing input, keyboard-aware interface, touch-friendly controls
+- **Reasoning Model Support**: Robust handling of thinking blocks and complex reasoning outputs
+- **Real-time Sync**: All changes automatically saved to database with connection monitoring
+
+### 📱 Mobile Experience
+
+- **Responsive Design**: Fully optimized interface that works beautifully on all screen sizes
+- **Character Selector Overlay**: Mobile-specific character selection with smooth animations
+- **Smart Input Handling**: Auto-resizing message input with min/max height constraints
+- **Keyboard Awareness**: Navigation footer automatically hides when typing for more space
+- **Touch Optimized**: All buttons and interactions designed for touch screens
+- **Mobile Navigation**: Dedicated mobile navigation footer with intuitive tab system
+- **Performance Optimized**: Efficient rendering for smooth scrolling on mobile devices
 
 ### 🎨 Modern UI & Themes
 
-- **🌙 Dark Theme**: Sleek dark interface with glassmorphism effects
-- **☀️ Light Theme**: Clean, bright interface perfect for daytime use
-- **🎈 Bubble Styles**: Multiple message bubble styles (rounded, square, etc.)
-- **📱 Responsive Design**: Perfect experience across all devices
-- **✨ Smooth Animations**: Polished transitions and micro-interactions
-- **🎯 Modern Components**: Contemporary UI elements with accessibility in mind
+- **🌙 Dark Theme**: Sleek dark interface with glassmorphism effects and modern gradients
+- **☀️ Light Theme**: Clean, bright interface perfect for daytime use with accessibility focus
+- **🎈 Bubble Styles**: Multiple message bubble styles (rounded, square, etc.) for personalization
+- **✨ Smooth Animations**: Polished transitions and micro-interactions throughout the interface
+- **🎯 Modern Components**: Contemporary UI elements with accessibility and usability in mind
+- **🎨 Theme Persistence**: Your theme preference is remembered across sessions
+- **🔧 Customizable**: Extensive theming options for personalized experience
+
+### 🔧 Advanced Settings & Configuration
+
+- **🔑 Smart API Key Management**: Add multiple API keys per provider with automatic rotation and status tracking
+- **⚙️ Model Configuration**: Fine-tune temperature, top-p, max tokens, and context size per character
+- **👤 User Profile**: Set custom user name, avatar, and persona for personalized interactions
+- **📊 Memory Settings**: Configure journal frequency, retrieval count, and embedding providers
+- **🔄 Reranking Configuration**: Choose reranking provider and configure fallback behavior
+- **🎯 Query Enhancement**: Select from multiple query embedding methods (LLM summary, HyDE, averaging)
+- **📈 Performance Tuning**: Adjust history message count and context management
+
+### 🔌 Connection & Monitoring
+
+- **📡 Connection Status**: Real-time connection monitoring with visual status indicators
+- **🔄 Auto-Reconnection**: Automatic reconnection attempts if connection is lost
+- **📱 Toast Notifications**: Informative success, error, and info messages
+- **📊 Server Logs**: Real-time server-sent events for debugging and monitoring
+- **⚡ Performance Metrics**: Track API response times and system health
+- **🔑 API Key Status**: Live monitoring of which keys are working, failed, or rate-limited
 
 ---
 
@@ -156,16 +246,44 @@ ChunRP is an **immersive local roleplay chatbot** that brings your AI characters
 
 ### 🔧 Configuration
 
-1. **Set up API Keys** - Click the settings gear ⚙️ and add your API keys
-2. **Configure Memory System** - Set up reranking provider and embedding preferences  
-3. **Create Your First Character** - Click "Create Character" and fill in the details
-4. **Start Chatting** - Select your character and begin your adventure!
+1. **Set up Multiple API Keys** - Click the settings gear ⚙️ and add multiple API keys for each provider you want to use
+2. **Configure Smart Rotation** - The system automatically handles key rotation and fallback
+3. **Set up Memory System** - Configure reranking provider and embedding preferences  
+4. **Customize Your Profile** - Set your username, avatar, and persona for personalized interactions
+5. **Create Your First Character** - Click "Create Character" and fill in the details
+6. **Start Chatting** - Select your character and begin your adventure!
 
 > **🔄 Migrating from JSON?** If you have an existing ChunRP installation with JSON files, run `npm run migrate` to automatically convert your data to the new SQLite format. Your original files will be safely backed up!
 
 ---
 
 ## 📖 Documentation
+
+### 🔑 Multiple API Key System
+
+<details>
+<summary><strong>How the Smart API Key System Works</strong></summary>
+
+**🔄 Key Rotation Process:**
+- **Round-Robin Distribution**: Keys are used in rotation to prevent any single key from being overused
+- **Automatic Failover**: If a key hits rate limits or fails, the system instantly switches to the next available key
+- **Status Tracking**: Each key is monitored for health (working, failed, rate-limited, untested)
+- **Recovery Management**: Failed keys are automatically retried after cooldown periods
+- **Load Balancing**: Requests are distributed evenly across all available keys
+
+**💡 Benefits:**
+- **Maximum Uptime**: Never get stuck waiting for rate limits to reset
+- **Reliability**: If one key fails, others continue working seamlessly
+- **Performance**: Distributed load prevents any single key from being overwhelmed
+- **Scalability**: Add more keys anytime to increase your request capacity
+
+**🎯 Best Practices:**
+- Add 2-3 keys per provider you use frequently
+- Monitor key status in the settings to identify problematic keys
+- Remove or replace keys that consistently fail
+- Different providers have different rate limits - plan accordingly
+
+</details>
 
 ### 🎯 Creating Characters
 
@@ -190,15 +308,15 @@ ChunRP is an **immersive local roleplay chatbot** that brings your AI characters
 <details>
 <summary><strong>LLM Provider Settings</strong></summary>
 
-- **Provider**: Choose your preferred AI service
-- **Model**: Select the specific model to use
-- **Temperature** (0.0-2.0): Controls creativity
-  - `0.3`: Very focused and consistent
-  - `0.7`: Balanced creativity
+- **Provider**: Choose your preferred AI service from 7 supported providers
+- **Model**: Select the specific model to use (including reasoning models)
+- **Temperature** (0.0-2.0): Controls creativity and randomness
+  - `0.3`: Very focused and consistent responses
+  - `0.7`: Balanced creativity and coherence
   - `1.2`: Highly creative and unpredictable
-- **Top P** (0.0-1.0): Controls response diversity
-- **Max Tokens**: Maximum response length
-- **Max Context Tokens**: Conversation memory limit
+- **Top P** (0.0-1.0): Controls response diversity via nucleus sampling
+- **Max Tokens**: Maximum response length limit
+- **Max Context Tokens**: Conversation memory limit for the model
 
 </details>
 
@@ -207,13 +325,13 @@ ChunRP is an **immersive local roleplay chatbot** that brings your AI characters
 
 **📊 Core Memory Settings:**
 - **Journal Frequency**: How often to create memory summaries (default: 10 messages)
-- **Retrieval Count**: Number of memories to recall (default: 3)
+- **Retrieval Count**: Number of memories to recall for context (default: 3)
 - **History Message Count**: Recent messages to keep in context (default: 300)
 
 **🔍 Embedding & Analysis:**
 - **Embedding Provider**: Service for creating memory embeddings (NVIDIA, Gemini, Mistral, Cohere)
 - **Analysis Provider**: LLM provider for memory analysis (Gemini recommended)
-- **Analysis Model**: Specific model for memory processing
+- **Analysis Model**: Specific model for memory processing and emotional analysis
 
 **🎯 Query Enhancement:**
 - **Query Embedding Method**: 
@@ -223,12 +341,12 @@ ChunRP is an **immersive local roleplay chatbot** that brings your AI characters
   - `plain`: Use current message as-is
 
 **🔄 Memory Reranking:**
-- **Enable Reranking**: Toggle intelligent memory reranking
+- **Enable Reranking**: Toggle intelligent memory reranking system
 - **Reranking Provider**: Choose between Jina, Cohere, or NVIDIA
-- **Automatic Fallback**: Switches providers if primary fails
+- **Automatic Fallback**: Switches providers if primary fails for reliability
 
 **♻️ Memory Recycling:**
-- **Progress Tracking**: Real-time updates during memory recreation
+- **Progress Tracking**: Real-time updates during memory recreation process
 - **Timeout Handling**: 6-second delays between memory creation for rate limiting
 - **Error Recovery**: Continues processing even if individual chunks fail
 
@@ -237,20 +355,22 @@ ChunRP is an **immersive local roleplay chatbot** that brings your AI characters
 ### 🎨 Themes and Customization
 
 Switch between **Dark** and **Light** themes in settings. Each theme includes:
-- Carefully crafted color palettes optimized for readability
-- Smooth animations and transitions
-- Modern glassmorphism effects
-- Customizable message bubble styles
-- Accessibility-focused design choices
+- Carefully crafted color palettes optimized for readability and eye comfort
+- Smooth animations and transitions for polished user experience
+- Modern glassmorphism effects and contemporary design elements
+- Customizable message bubble styles for personalization
+- Accessibility-focused design choices with proper contrast ratios
 
 ### 📱 Mobile Experience
 
-ChunRP is fully responsive with:
-- Touch-optimized interface
-- Swipe gestures for navigation
-- Mobile-friendly character selector
-- Optimized keyboard input handling
-- Responsive message bubbles and layouts
+ChunRP is fully responsive with mobile-first design:
+- **Touch-optimized interface** with appropriately sized buttons and touch targets
+- **Swipe gestures** for intuitive navigation
+- **Mobile-friendly character selector** with smooth overlay animations
+- **Keyboard-aware input handling** that adapts to mobile keyboards
+- **Responsive message bubbles** that adjust to screen size
+- **Auto-resizing input field** with smart height constraints
+- **Navigation footer** that hides when typing for maximum screen space
 
 ---
 
@@ -264,15 +384,15 @@ ChunRP/
 │   ├── 📁 backend/
 │   │   ├── 🔧 server.js                  # Express server & API routes
 │   │   ├── 🗄️ database.js               # SQLite database layer
-│   │   ├── 👤 character-system.js       # Character CRUD operations (now exports from SQLite)
+│   │   ├── 👤 character-system.js       # Character CRUD operations (exports from SQLite)
 │   │   ├── 👤 character-system-sqlite.js # SQLite-based character operations
-│   │   ├── 🤖 llm-providers.js          # AI provider integrations (9+ providers)
+│   │   ├── 🤖 llm-providers.js          # AI provider integrations (7 providers)
 │   │   ├── 🧠 memory-system.js          # Vector memory system with reranking
 │   │   ├── 🔄 reranking-system.js       # Memory reranking with multiple APIs
 │   │   ├── 📊 vectra-wrapper.js         # Vector database wrapper
-│   │   ├── � migration.js              # Database migration utilities
+│   │   ├── 🔄 migration.js              # Database migration utilities
 │   │   └── 📍 app-paths.js              # Path management for different environments
-│   ├── �📁 frontend/
+│   ├── 📁 frontend/
 │   │   ├── 🏠 index.html                # Main HTML structure
 │   │   ├── 📁 css/
 │   │   │   ├── 🎨 main.css              # Core styles with modern design
@@ -285,7 +405,7 @@ ChunRP/
 │   │   └── 📁 assets/                   # Images and icons
 │   └── ⚡ electron.js                   # Desktop app entry point
 ├── 📁 data/
-│   ├── �️ chunrp.db                    # SQLite database (characters, messages, settings)
+│   ├── 🗄️ chunrp.db                    # SQLite database (characters, messages, settings)
 │   ├── 🧠 memory-vectra/                # Vector memory storage
 │   └── 📋 data-backup/                  # Migration backup files (if migrated)
 ├── 🔄 migrate.js                        # Database migration runner
@@ -356,7 +476,7 @@ GET    /api/logs                # Server-sent events for logs
 
 ### 🗄️ Database Schema
 
-ChunRP now uses SQLite for reliable data storage:
+ChunRP uses SQLite for reliable, fast data storage:
 
 <details>
 <summary><strong>Database Tables</strong></summary>
@@ -436,13 +556,14 @@ CREATE TABLE settings (
    };
    ```
 
-3. **Update frontend settings** to include the new provider option.
+3. **Update frontend settings** to include the new provider option in the dropdown.
 
 ### 🔄 Adding Reranking Providers
 
 1. **Update `reranking-system.js`** with new provider implementation
-2. **Add API key configuration** in settings
+2. **Add API key configuration** in settings modal
 3. **Update fallback chain** for robust error handling
+4. **Test integration** with existing memory retrieval system
 
 ---
 
@@ -450,15 +571,34 @@ CREATE TABLE settings (
 
 ### 🎉 Latest Features (v3.0.0) - Major Database Migration!
 
-- **�️ SQLite Database Migration**: Complete transition from JSON files to SQLite for better performance and reliability
-- **�🔄 Memory Reranking System**: Intelligent memory retrieval with Jina, Cohere, and NVIDIA APIs
+- **🗄️ SQLite Database Migration**: Complete transition from JSON files to SQLite for better performance and reliability
+- **🔄 Smart API Key System**: Multiple API keys per provider with automatic rotation and intelligent fallback
+- **🔄 Memory Reranking System**: Intelligent memory retrieval with Jina, Cohere, and NVIDIA APIs
 - **♻️ Memory Recycling**: Complete memory regeneration with progress tracking and error recovery
+- **👁️ Memory Viewer**: Browse and manage character memories through dedicated side panel
 - **🤖 Reasoning Model Support**: Robust handling of thinking blocks and malformed JSON responses
 - **📊 Progress Tracking**: Real-time memory creation progress with detailed status updates
-- **🔧 Provider Expansion**: Added latest models including DeepSeek R1, Gemini 2.0 Thinking, QWQ 32B
+- **🔧 Provider Optimization**: Streamlined to 7 reliable providers with extensive free model selection
 - **⚡ Performance Improvements**: Significantly faster data operations with SQLite queries
 - **🛡️ Data Integrity**: Foreign key constraints and ACID compliance prevent data corruption
 - **🎨 Enhanced UI**: Improved themes, better mobile experience, and modern design elements
+
+### 🔑 API Key Management Revolution
+
+- **🔄 Automatic Key Rotation**: Round-robin system prevents rate limit issues
+- **📊 Real-time Status Monitoring**: See which keys are working, failed, or rate-limited
+- **🛡️ Intelligent Fallback**: Seamless switching when keys fail or hit limits
+- **⚡ Load Balancing**: Distributed requests for optimal performance
+- **🎯 Recovery Management**: Automatic retry of failed keys after cooldown periods
+
+### 📱 Mobile UI Enhancements
+
+- **🎯 Character Selector Overlay**: Smooth mobile-specific character selection interface
+- **📝 Auto-resizing Input**: Smart message input that adapts to content with height constraints
+- **⌨️ Keyboard-aware Interface**: Navigation footer automatically hides when typing
+- **👆 Touch Optimizations**: All interactions optimized for touch screens
+- **🔄 Responsive Navigation**: Mobile-first navigation system with intuitive tab structure
+- **🎨 Mobile Themes**: Themes optimized for mobile viewing with proper contrast
 
 ### 🔧 Technical Improvements
 
@@ -486,11 +626,12 @@ We welcome contributions! Here's how to get started:
 ### 🐛 Reporting Issues
 
 Found a bug? Please open an issue with:
-- Detailed description
-- Steps to reproduce
+- Detailed description of the problem
+- Steps to reproduce the issue
 - Expected vs actual behavior
 - System information (OS, Node.js version)
 - Provider and model being used
+- Any relevant error messages or screenshots
 
 ---
 
@@ -505,8 +646,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Vectra** - Local vector database for memory storage
 - **Express** - Web framework for the backend API
 - **Electron** - Cross-platform desktop app framework
+- **SQLite** - Reliable, efficient database engine
 - **Jina AI, Cohere, NVIDIA** - Reranking API providers
-- **All AI Providers** - For making this diverse ecosystem possible
+- **All AI Providers** - For making this diverse ecosystem possible with free models
 - **Open Source Community** - For the amazing tools and libraries
 
 ---
