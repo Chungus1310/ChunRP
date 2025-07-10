@@ -147,7 +147,9 @@ async function makeRequest(url, options = {}, timeout = 30000, retries = 2) {
       clearTimeout(timeoutId);
       
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
+        error.response = response; // Attach response for error handling
+        throw error;
       }
       
       // Update connection status on successful request
@@ -1049,9 +1051,25 @@ async function sendMessage() {
       renderChatHistory();
     }
     
-    // Show appropriate error message
+    // Try to extract the actual error message from the API response
     let errorMessage = 'Failed to generate response.';
-    if (error.name === 'AbortError') {
+    
+    // Check if this is an HTTP error with a JSON response containing error details
+    if (error.response) {
+      try {
+        const errorData = await error.response.json();
+        if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } catch (parseError) {
+        // If we can't parse the error response, fall back to status-based messages
+        if (error.message.includes('HTTP 429')) {
+          errorMessage = 'Server is busy. Please wait a moment and try again.';
+        } else if (error.message.includes('HTTP 5')) {
+          errorMessage = 'Server error. Please try again in a moment.';
+        }
+      }
+    } else if (error.name === 'AbortError') {
       errorMessage = 'Request timed out after 10 minutes. Please try a shorter or simpler message.';
     } else if (error.message.includes('HTTP 429')) {
       errorMessage = 'Server is busy. Please wait a moment and try again.';
@@ -1061,7 +1079,7 @@ async function sendMessage() {
       errorMessage = 'No connection to server. Please check your internet connection.';
     }
     
-    displayToast(errorMessage, 'error', 8000);
+    displayToast(errorMessage, 'error', 10000); // Show for 10 seconds since error messages might be longer
   } finally {
     state.isGenerating = false;
     state.currentAbortController = null;
@@ -1466,6 +1484,8 @@ function populateModelOptions(selectedProvider) {
       { value: 'microsoft/mai-ds-r1:free', name: 'MAI-DS R1 (Free)' },
       { value: 'deepseek/deepseek-chat-v3-0324:free', name: 'Deepseek Chat v3' },
       { value: "arliai/qwq-32b-arliai-rpr-v1:free", name: "QWQ 32B RPR"},
+      { value: "tngtech/deepseek-r1t2-chimera:free", name: "TNG DeepSeek R1T2 Chimera (Free)"},
+      { value: "tencent/hunyuan-a13b-instruct:free", name: "Tencent Hunyuan A13B Instruct (Free)"},
       { value: 'deepseek/deepseek-r1:free', name: 'DeepSeek R1 (Free)' },
       { value: 'deepseek/deepseek-r1-zero:free', name: 'DeepSeek R1 Zero (Free)' },
       { value: 'deepseek/deepseek-r1-0528:free', name: 'DeepSeek R1 (0528, Free)' },
@@ -1499,17 +1519,18 @@ function populateModelOptions(selectedProvider) {
       { value: 'command-r-08-2024', name: 'Command R 08-2024' },
       { value: 'command-nightly', name: 'Command Nightly' }    ],      
     chutes: [
-      { id: "deepseek-ai/DeepSeek-R1", name: "DeepSeek R1" },
-      { id: "deepseek-ai/DeepSeek-R1-0528", name: "DeepSeek R1 (0528)" },
-      { id: "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B", name: "DeepSeek R1 Qwen3 8B" },
-      { id: "deepseek-ai/DeepSeek-V3-0324", name: "DeepSeek V3 (0324)" },
-      { id: "ArliAI/QwQ-32B-ArliAI-RpR-v1", name: "ArliAI QwQ 32B RPR v1" },
-      { id: "microsoft/MAI-DS-R1-FP8", name: "Microsoft MAI-DS R1 FP8" },
-      { id: "tngtech/DeepSeek-R1T-Chimera", name: "TNG DeepSeek R1T Chimera" },
-      { id: "tngtech/DeepSeek-TNG-R1T2-Chimera", name: "TNG DeepSeek TNG R1T2 Chimera" },
-      { id: "Qwen/Qwen3-235B-A22B", name: "Qwen3-235B-A22B" },
-      { id: "chutesai/Llama-4-Maverick-17B-128E-Instruct-FP8", name: "Llama-4 Maverick 17B 128E Instruct FP8" },
-      { id: "MiniMaxAI/MiniMax-M1-80k", name: "MiniMax M1 80K" }
+      { value: "deepseek-ai/DeepSeek-R1", name: "DeepSeek R1" },
+      { value: "deepseek-ai/DeepSeek-R1-0528", name: "DeepSeek R1 (0528)" },
+      { value: "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B", name: "DeepSeek R1 Qwen3 8B" },
+      { value: "deepseek-ai/DeepSeek-V3-0324", name: "DeepSeek V3 (0324)" },
+      { value: "ArliAI/QwQ-32B-ArliAI-RpR-v1", name: "ArliAI QwQ 32B RPR v1" },
+      { value: "microsoft/MAI-DS-R1-FP8", name: "Microsoft MAI-DS R1 FP8" },
+      { value: "tngtech/DeepSeek-R1T-Chimera", name: "TNG DeepSeek R1T Chimera" },
+      { value: "tngtech/DeepSeek-TNG-R1T2-Chimera", name: "TNG DeepSeek TNG R1T2 Chimera" },
+      { value: "tencent/Hunyuan-A13B-Instruct", name: "Tencent Hunyuan A13B Instruct" },
+      { value: "Qwen/Qwen3-235B-A22B", name: "Qwen3-235B-A22B" },
+      { value: "chutesai/Llama-4-Maverick-17B-128E-Instruct-FP8", name: "Llama-4 Maverick 17B 128E Instruct FP8" },
+      { value: "MiniMaxAI/MiniMax-M1-80k", name: "MiniMax M1 80K" }
     ],
     nvidia: [
       { value: 'nvidia/llama-3.3-nemotron-super-49b-v1', name: 'Llama 3.3 Nemotron Super 49B' },
@@ -1640,10 +1661,12 @@ function showSettingsModal() {
           </div>
           
           <div class="form-group">
-            <label for="api-key">API Key for ${currentProvider.charAt(0).toUpperCase() + currentProvider.slice(1)}</label>
-            <div class="api-key-input">
-              <input type="password" id="api-key" value="${apiKeys[currentProvider] || ''}">
-              <button type="button" class="btn secondary show-hide-btn">Show</button>
+            <label id="api-keys-label">API Keys for ${currentProvider.charAt(0).toUpperCase() + currentProvider.slice(1)}</label>
+            <div class="api-keys-container" id="api-keys-container">
+              <div class="api-key-list" id="api-key-list">
+                ${populateApiKeyList(currentProvider)}
+              </div>
+              <button type="button" class="btn secondary add-api-key-btn">+ Add API Key</button>
             </div>
           </div>
           
@@ -1801,6 +1824,182 @@ function showSettingsModal() {
   
   // Attach event listeners
   attachSettingsModalEvents();
+  
+  // Fetch and update API key statuses
+  updateApiKeyStatuses();
+}
+
+// Function to fetch and update API key statuses
+async function updateApiKeyStatuses() {
+  try {
+    const response = await fetch('/api/key-status');
+    if (response.ok) {
+      const data = await response.json();
+      
+      // Store key statuses in state for later use
+      if (!state.settings.apiKeyStatuses) {
+        state.settings.apiKeyStatuses = {};
+      }
+      state.settings.apiKeyStatuses = data.statuses;
+      
+      // Update visual indicators if settings modal is open
+      const modal = document.querySelector('.settings-modal');
+      if (modal && modal.style.display !== 'none') {
+        updateKeyStatusIndicators(data.statuses);
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to fetch API key statuses:', error);
+  }
+}
+
+// Function to update key status indicators in the UI
+function updateKeyStatusIndicators(statuses) {
+  const currentProvider = document.getElementById('llm-provider')?.value;
+  if (!currentProvider || !statuses[currentProvider]) return;
+  
+  const keyItems = document.querySelectorAll('.api-key-item');
+  const providerStatuses = statuses[currentProvider];
+  
+  keyItems.forEach((item, index) => {
+    const statusIndicator = item.querySelector('.api-key-status');
+    if (statusIndicator && index < providerStatuses.length) {
+      const status = providerStatuses[index];
+      statusIndicator.className = `api-key-status ${status}`;
+      statusIndicator.title = `Status: ${status}`;
+    }
+  });
+}
+
+// Helper functions for multiple API key management
+function normalizeApiKeys(apiKeys, provider) {
+  // Convert single string to array for backward compatibility
+  const keys = apiKeys[provider];
+  if (typeof keys === 'string') {
+    return keys ? [keys] : [];
+  }
+  return Array.isArray(keys) ? keys : [];
+}
+
+function generateApiKeyInput(index, value, provider, status = 'untested') {
+  const showText = value ? 'Show' : 'Show';
+  const isFirst = index === 0;
+  
+  return `
+    <div class="api-key-item" data-index="${index}">
+      <span class="api-key-status ${status}" title="Status: ${status}"></span>
+      <input type="password" class="api-key-input-field" 
+             value="${value || ''}" 
+             placeholder="Enter API key ${index + 1}"
+             data-index="${index}">
+      <button type="button" class="btn secondary show-hide-btn" data-index="${index}">Show</button>
+      ${!isFirst ? `<button type="button" class="btn remove-api-key-btn" data-index="${index}">Remove</button>` : ''}
+    </div>
+  `;
+}
+
+function populateApiKeyList(provider) {
+  const apiKeys = state.settings.apiKeys || {};
+  const normalizedKeys = normalizeApiKeys(apiKeys, provider);
+  const keyStatuses = state.settings.apiKeyStatuses?.[provider] || [];
+  
+  // Ensure at least one empty input
+  if (normalizedKeys.length === 0) {
+    normalizedKeys.push('');
+  }
+  
+  let html = '';
+  normalizedKeys.forEach((key, index) => {
+    const status = keyStatuses[index] || 'untested';
+    html += generateApiKeyInput(index, key, provider, status);
+  });
+  
+  return html;
+}
+
+function collectApiKeyInputs(provider) {
+  const inputs = document.querySelectorAll('.api-key-input-field');
+  const keys = [];
+  
+  inputs.forEach(input => {
+    const value = input.value.trim();
+    if (value) {
+      keys.push(value);
+    }
+  });
+  
+  return keys;
+}
+
+function addApiKeyInput(provider) {
+  const container = document.getElementById('api-key-list');
+  const currentInputs = container.querySelectorAll('.api-key-item');
+  const newIndex = currentInputs.length;
+  
+  const newInputHtml = generateApiKeyInput(newIndex, '', provider, 'untested');
+  container.insertAdjacentHTML('beforeend', newInputHtml);
+  
+  // Set up event listeners for the new input
+  setupApiKeyEventListeners(provider);
+}
+
+function removeApiKeyInput(index, provider) {
+  const container = document.getElementById('api-key-list');
+  const items = container.querySelectorAll('.api-key-item');
+  
+  if (items.length > 1 && index > 0) { // Don't remove the first item
+    items[index].remove();
+    
+    // Reindex remaining items
+    const remainingItems = container.querySelectorAll('.api-key-item');
+    remainingItems.forEach((item, newIndex) => {
+      item.setAttribute('data-index', newIndex);
+      const input = item.querySelector('.api-key-input-field');
+      const showBtn = item.querySelector('.show-hide-btn');
+      const removeBtn = item.querySelector('.remove-api-key-btn');
+      
+      input.setAttribute('data-index', newIndex);
+      showBtn.setAttribute('data-index', newIndex);
+      if (removeBtn) {
+        removeBtn.setAttribute('data-index', newIndex);
+      }
+    });
+  }
+}
+
+function setupApiKeyEventListeners(provider) {
+  // Add API key button
+  const addBtn = document.querySelector('.add-api-key-btn');
+  if (addBtn) {
+    addBtn.removeEventListener('click', addBtn._clickHandler); // Remove old listener
+    addBtn._clickHandler = () => addApiKeyInput(provider);
+    addBtn.addEventListener('click', addBtn._clickHandler);
+  }
+  
+  // Remove buttons
+  document.querySelectorAll('.remove-api-key-btn').forEach(btn => {
+    btn.removeEventListener('click', btn._clickHandler);
+    btn._clickHandler = () => {
+      const index = parseInt(btn.getAttribute('data-index'));
+      removeApiKeyInput(index, provider);
+    };
+    btn.addEventListener('click', btn._clickHandler);
+  });
+  
+  // Show/hide buttons
+  document.querySelectorAll('.show-hide-btn').forEach(btn => {
+    btn.removeEventListener('click', btn._clickHandler);
+    btn._clickHandler = () => {
+      const index = parseInt(btn.getAttribute('data-index'));
+      const input = document.querySelector(`.api-key-input-field[data-index="${index}"]`);
+      if (input) {
+        const isPassword = input.type === 'password';
+        input.type = isPassword ? 'text' : 'password';
+        btn.textContent = isPassword ? 'Hide' : 'Show';
+      }
+    };
+    btn.addEventListener('click', btn._clickHandler);
+  });
 }
 
 // Attach event listeners to settings modal elements
@@ -1946,19 +2145,23 @@ function attachSettingsModalEvents() {
     });
   });
   
-  // Provider change event
+  // Provider change event - updated for multiple API keys
   const providerSelect = dom.settingsModal.querySelector('#llm-provider');
   providerSelect.addEventListener('change', () => {
     const selectedProvider = providerSelect.value;
-    const apiKeyInput = dom.settingsModal.querySelector('#api-key');
-    const apiKeyLabel = dom.settingsModal.querySelector('label[for="api-key"]');
-    const apiKeys = state.settings.apiKeys || {};
+    const apiKeyList = dom.settingsModal.querySelector('#api-key-list');
+    const apiKeyLabel = dom.settingsModal.querySelector('#api-keys-label');
     
     // Update the label
-    apiKeyLabel.textContent = `API Key for ${selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1)}`;
+    if (apiKeyLabel) {
+      apiKeyLabel.textContent = `API Keys for ${selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1)}`;
+    }
     
-    // Update the input value
-    apiKeyInput.value = apiKeys[selectedProvider] || '';
+    // Update the API key list for the new provider
+    apiKeyList.innerHTML = populateApiKeyList(selectedProvider);
+    
+    // Set up event listeners for the new API key inputs
+    setupApiKeyEventListeners(selectedProvider);
     
     // Update the model selection based on the new provider
     populateModelOptions(selectedProvider);
@@ -1966,6 +2169,9 @@ function attachSettingsModalEvents() {
   
   // Call populateModelOptions after the modal is created with current provider
   populateModelOptions();
+  
+  // Set up initial API key event listeners
+  setupApiKeyEventListeners(providerSelect.value);
   
   // Range input value display
   const rangeInputs = dom.settingsModal.querySelectorAll('input[type="range"]');
@@ -1976,15 +2182,6 @@ function attachSettingsModalEvents() {
         valueDisplay.textContent = input.value;
       });
     }
-  });
-  
-  // Show/hide API key
-  const showHideBtn = dom.settingsModal.querySelector('.show-hide-btn');
-  const apiKeyInput = dom.settingsModal.querySelector('#api-key');
-  showHideBtn.addEventListener('click', () => {
-    const isPassword = apiKeyInput.type === 'password';
-    apiKeyInput.type = isPassword ? 'text' : 'password';
-    showHideBtn.textContent = isPassword ? 'Hide' : 'Show';
   });
     // Theme selection dropdown
   const themeSelect = dom.settingsModal.querySelector('#theme-select');
@@ -2015,7 +2212,6 @@ async function saveSettingsFromForm() {
     // Get form values with null checks
     const providerEl = document.getElementById('llm-provider');
     const modelEl = document.getElementById('model-selection');
-    const apiKeyEl = document.getElementById('api-key');
     const temperatureEl = document.getElementById('temperature');
     const topPEl = document.getElementById('top-p');
     const maxTokensEl = document.getElementById('max-tokens');
@@ -2024,14 +2220,14 @@ async function saveSettingsFromForm() {
     const userAvatarUrlEl = document.getElementById('user-avatar-url');
     const userPersonaEl = document.getElementById('user-persona');
     
-    if (!providerEl || !modelEl || !apiKeyEl) {
+    if (!providerEl || !modelEl) {
       showErrorMessage('Settings form elements are missing. Please refresh the page.');
       return;
     }
     
     const provider = providerEl.value;
     const model = modelEl.value;
-    const apiKey = apiKeyEl.value;
+    const currentProviderApiKeys = collectApiKeyInputs(provider); // Collect multiple API keys for current provider
     const temperature = temperatureEl ? parseFloat(temperatureEl.value) : 0.7;
     const topP = topPEl ? parseFloat(topPEl.value) : 0.9;
     const maxTokens = maxTokensEl ? parseInt(maxTokensEl.value) : 2048;
@@ -2083,20 +2279,20 @@ async function saveSettingsFromForm() {
   const bubbleStyle = selectedBubbleBtn ? selectedBubbleBtn.dataset.style : 'rounded';
 
   // Create settings object, preserving existing API keys
-  const apiKeys = state.settings.apiKeys || {};
-  // Update only the current provider's API key
-  apiKeys[provider] = apiKey;
+  const allApiKeys = state.settings.apiKeys || {};
+  // Update the current provider's API keys (now as array)
+  allApiKeys[provider] = currentProviderApiKeys;
   
-  // Update Jina API key if provided
+  // Update Jina API key if provided (keep as single key for backward compatibility)
   if (jinaApiKey) {
-    apiKeys.jina = jinaApiKey;
+    allApiKeys.jina = jinaApiKey;
   }
 
   const settings = {
     ...state.settings,
     provider,
     model,
-    apiKeys, // Store all API keys
+    apiKeys: allApiKeys, // Store all API keys
     temperature,
     topP,
     maxTokens,

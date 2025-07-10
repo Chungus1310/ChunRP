@@ -29,7 +29,7 @@ import {
 } from './character-system.js';
 
 // LLM stuff
-import { generateResponse, modelConfigurations } from './llm-providers.js';
+import { generateResponse, modelConfigurations, apiKeyStatus, apiKeyIndices } from './llm-providers.js';
 
 // Memory stuff
 import { 
@@ -346,8 +346,7 @@ app.post('/api/chat', async (req, res) => {
     
     // Get user profile
     const userProfile = mergedSettings.user || { name: 'User' };
-    
-    // Generate response - this may update character.relationships in memory
+      // Generate response - this may update character.relationships in memory
     const responseContent = await generateResponse(
       character,
       message,
@@ -356,11 +355,6 @@ app.post('/api/chat', async (req, res) => {
       mergedSettings
     );
 
-    // Check if generateResponse had an issue
-    if (responseContent === "I'm having trouble responding right now. Please try again.") {
-        return res.status(500).json({ error: responseContent });
-    }
-    
     // If character was modified, mark as dirty and schedule save
     if (character.modifiedAt > (characterCache.get(characterName)?.modifiedAt || 0)) {
       // Update cache with potentially modified character
@@ -369,15 +363,30 @@ app.post('/api/chat', async (req, res) => {
       scheduleSaveCache();
       console.log(`Character ${characterName} marked for deferred save`);
     }
-    
+
     // Save updated history immediately
     saveChatHistory(characterName, chatHistory); 
     
     res.json({ response: responseContent });
   } catch (error) {
-    // Catch unexpected errors
-    console.error("Error in POST /api/chat:", error);
-    res.status(500).json({ error: "Failed to generate chat response due to a server error." });
+    // Send the actual error message to the user
+    console.error("Error in POST /api/chat:", error.message || error);
+    
+    // Check if it's a provider-specific error (has detailed message)
+    if (error.message && (
+      error.message.includes('API key') || 
+      error.message.includes('API request failed') || 
+      error.message.includes('response format unexpected') ||
+      error.message.includes('Network error') ||
+      error.message.includes('Provider') ||
+      error.message.includes('not supported')
+    )) {
+      // Send the specific error message to the user
+      return res.status(500).json({ error: error.message });
+    }
+    
+    // For unknown errors, send a generic message
+    res.status(500).json({ error: "Failed to generate chat response due to an unexpected server error." });
   }
 });
 
@@ -575,6 +584,21 @@ app.put('/api/settings', (req, res) => {
     // Unlikely if saveSettingsToDB handles errors
     console.error("Error in PUT /api/settings:", error);
     res.status(500).json({ error: 'Failed to save settings.' });
+  }
+});
+
+// Get API key statuses
+app.get('/api/key-status', (req, res) => {
+  try {
+    // Return current API key statuses for all providers
+    const statusResponse = {
+      statuses: apiKeyStatus,
+      indices: apiKeyIndices
+    };
+    res.json(statusResponse);
+  } catch (error) {
+    console.error("Error in GET /api/key-status:", error);
+    res.status(500).json({ error: 'Failed to retrieve API key statuses.' });
   }
 });
 

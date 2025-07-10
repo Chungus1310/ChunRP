@@ -12,15 +12,15 @@
   ],
   "win": {
     "target": ["nsis"],
-    "icon": "src/frontend/assets/icon.png"
+    "icon": "src/frontend/assets/logo.png"
   },
   "mac": {
     "target": ["dmg"],
-    "icon": "src/frontend/assets/icon.icns"
+    "icon": "src/frontend/assets/logo.png"
   },
   "linux": {
     "target": ["AppImage"],
-    "icon": "src/frontend/assets/icon.png",
+    "icon": "src/frontend/assets/logo.png",
     "category": "Utility"
   },
   "nsis": {

@@ -306,6 +306,7 @@ body {
 /* Modern Sidebar with Enhanced Glassmorphism */
 .sidebar {
   width: var(--sidebar-width);
+  flex-shrink: 0;
   background: var(--sidebar-bg);
   backdrop-filter: blur(var(--blur-backdrop));
   border-right: 1px solid var(--border-color);
@@ -554,6 +555,7 @@ body {
   background-color: var(--background-color);
   position: relative; /* For welcome screen positioning */
   transition: background-color var(--transition-normal);
+  min-width: 0; /* CRITICAL FIX: Prevents content from expanding the container */
 }
 
 .hidden {
@@ -677,6 +679,7 @@ body {
   flex-direction: column;
   gap: var(--spacing-xs);
   flex-grow: 1;
+  min-width: 0; /* Ensures this container also respects flex constraints */
 }
 
 .message-bubble {
@@ -1512,6 +1515,62 @@ textarea {
   gap: var(--spacing-sm);
 }
 .api-key-input input { flex-grow: 1; }
+
+/* Multiple API Keys Styling */
+.api-keys-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.api-key-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.api-key-item {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
+.api-key-item input {
+  flex-grow: 1;
+}
+
+.api-key-status {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.api-key-status.working { background-color: var(--success-color); }
+.api-key-status.failed { background-color: var(--error-color); }
+.api-key-status.rate-limited { background-color: var(--warning-color); }
+.api-key-status.untested { background-color: var(--text-color-secondary); }
+
+.add-api-key-btn {
+  align-self: flex-start;
+  margin-top: var(--spacing-xs);
+}
+
+.remove-api-key-btn {
+  background-color: var(--error-color);
+  color: white;
+  border: none;
+  border-radius: 3px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.remove-api-key-btn:hover {
+  background-color: var(--error-color-hover);
+}
 
 .param-group {
   margin-bottom: var(--spacing-sm);

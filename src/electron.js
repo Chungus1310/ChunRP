@@ -29,7 +29,7 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
     },
-    icon: path.join(__dirname, 'frontend/assets/icon.png'),
+    icon: path.join(__dirname, 'frontend/assets/logo.png'),
     title: 'Immersive Roleplay Chatbot',
     backgroundColor: '#1e1e1e', // Dark background to prevent white flashing on startup
     show: false // Don't show until ready
