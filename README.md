@@ -27,10 +27,10 @@ ChunRP is an **immersive local roleplay chatbot** that brings your AI characters
 - ♻️ **Memory Recycling** - Rebuild character memories from scratch with progress tracking
 - 🗄️ **SQLite Database** - Fast, reliable data storage with ACID compliance and proper relationships
 - 🔄 **Smart API Key Rotation** - Multiple API keys per provider with automatic rotation and fallback
-- 🤖 **7 Free AI Providers** - All models completely free with extensive selection
+- 🤖 **9+ AI Providers** - Access a vast selection of free and premium models from providers like Gemini, OpenRouter, Chutes, NVIDIA, and more
 - 🏠 **100% Local** - Your conversations stay private on your machine
 - 📱 **Mobile Responsive** - Works beautifully on desktop, tablet, and mobile with optimized UI
-- 🎨 **Beautiful Themes** - Dark/Light themes with customizable bubble styles
+- 🎨 **10+ Beautiful Themes** - Choose from over ten themes (Dark, Light, Cyberpunk, Ocean, etc.) with customizable bubble styles
 - ⚡ **Real-time Experience** - Instant responses with streaming support and robust reasoning model handling
 
 ---
@@ -50,12 +50,11 @@ ChunRP is an **immersive local roleplay chatbot** that brings your AI characters
 This system ensures your conversations never get interrupted by rate limits or key failures!
 
 ### 🎭 Character Management
-- **Rich Character Profiles**: Create detailed characters with personas, appearances, scenarios, and custom system prompts
+- **Rich Character Profiles**: Create detailed characters with personas, appearances, and scenarios. The **persona** field now serves as the complete system prompt for maximum control
 - **Avatar Support**: Add custom avatars via URL or use the default avatar with fallback handling
-- **Character Import/Export**: Share characters or backup your creations as JSON files
 - **Per-Character Settings**: Customize LLM settings individually for each character's unique personality
 - **Character Search & Selection**: Fast character lookup in sidebar with mobile-optimized selector overlay
-- **SQLite Storage**: Characters stored in fast, reliable SQLite database with proper relationships
+- **SQLite Storage**: Characters stored in a fast, reliable SQLite database with proper relationships
 
 ### 🧠 Advanced Memory System
 
@@ -87,70 +86,62 @@ This system ensures your conversations never get interrupted by rate limits or k
 - **Configurable**: Choose your preferred reranking provider and manage API keys easily
 - **Performance Optimized**: Smart query processing for optimal retrieval accuracy and speed
 
-### 🤖 Multi-Provider LLM Support - All Models FREE!
+### 🤖 Multi-Provider LLM Support - Extensive Model Selection!
 
 <details>
-<summary><strong>🌐 Supported Providers & FREE Models (Click to expand)</strong></summary>
+<summary><strong>🌐 Supported Providers & Models (Click to expand)</strong></summary>
 
 | Provider | Featured Models | Reasoning Models | Multiple Keys |
 |----------|-----------------|------------------|---------------|
-| **🔥 Gemini** | Gemini 2.5 Pro, 2.0 Flash, **2.5 Flash Thinking** | ✅ Thinking models | ✅ |
-| **🔥 OpenRouter** | DeepSeek R1, QWQ 32B, MAI-DS R1, Gemini 2.0 Flash | ✅ Multiple reasoning models | ✅ |
-| **🔥 Chutes** | DeepSeek R1, ArliAI QwQ 32B, TNG Chimera, Llama 4 | ✅ DeepSeek R1 family | ✅ |
-| **NVIDIA** | Llama 4 Scout/Maverick, QWQ 32B, Nemotron family | ✅ QWQ 32B, DeepSeek R1 | ✅ |
-| **Hugging Face** | Llama 3.3 70B, DeepSeek V3, Dolphin Mixtral family | ❌ | ✅ |
-| **Cohere** | Command A 03-2025, Command R7B, Command R Plus | ❌ | ✅ |
-| **Mistral** | Mistral Large, Magistral Medium/Small, Open Nemo | ✅ Magistral family | ✅ |
+| **🔥 Gemini** | Gemini 2.5 Pro, 2.5 Flash, **2.5 Flash Thinking** | ✅ Thinking models | ✅ |
+| **🔥 Chutes** | DeepSeek R1, ArliAI QwQ 32B, Llama 4 Maverick | ✅ DeepSeek R1 family | ✅ |
+| **🔥 OpenRouter** | Horizon Alpha, QWQ 32B, DeepSeek Chat v3 | ✅ Multiple reasoning models | ✅ |
+| **NVIDIA** | Llama 3.3 Nemotron, Llama 4 Scout/Maverick | ✅ Qwen, DeepSeek R1 | ✅ |
+| **Hugging Face** | Llama 3.3 70B, DeepSeek V3, Dolphin Mixtral | ❌ | ✅ |
+| **Mistral** | Mistral Large, Magistral Medium, Open Nemo | ✅ Magistral family | ✅ |
+| **Cohere** | Command A, Command R Plus, Command R7B | ❌ | ✅ |
+| **Aion Labs** | Aion 1.0, Aion RP Small | ✅ | ✅ |
 
 **🔥 Popular FREE Reasoning Models:**
 - **DeepSeek R1 & R1-0528** (Chutes, OpenRouter, NVIDIA)
-- **Gemini 2.5 Pro Thinking** (Gemini)
+- **Gemini 2.5 Pro & Flash with Thinking** (Gemini)
 - **QWQ 32B** (NVIDIA, OpenRouter, Chutes)
 - **ArliAI QwQ 32B** (Chutes, OpenRouter)
-- **MAI-DS R1** (OpenRouter)
 - **Llama 4 Scout/Maverick** (NVIDIA, Chutes)
 
-**📋 Complete Model List:**
+**📋 Complete Model List (as of latest build):**
 
 **Gemini Models:**
-- gemini-2.5-pro, gemini-2.5-flash, gemini-2.0-flash
-- gemini-2.0-flash-thinking-exp-01-21
-- gemini-1.5-pro, gemini-1.5-flash
-- learnlm-2.0-flash-experimental
-
-**OpenRouter Models:**
-- google/gemini-2.0-flash-exp:free
-- microsoft/mai-ds-r1:free
-- deepseek/deepseek-chat-v3-0324:free
-- arliai/qwq-32b-arliai-rpr-v1:free
+- gemini-2.5-pro, gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash
+- gemini-2.5-pro-preview-06-05, gemini-2.5-flash-preview-05-20
+- gemini-2.0-flash-thinking-exp-01-21, learnlm-2.0-flash-experimental
 
 **Chutes Models:**
-- deepseek-ai/DeepSeek-R1, DeepSeek-R1-0528
-- ArliAI/QwQ-32B-ArliAI-RpR-v1
-- tngtech/DeepSeek-R1T-Chimera
-- chutesai/Llama-4-Maverick-17B-128E-Instruct-FP8
-- MiniMaxAI/MiniMax-M1-80k
+- deepseek-ai/DeepSeek-R1, ArliAI/QwQ-32B-ArliAI-RpR-v1
+- tngtech/DeepSeek-R1T2-Chimera, chutesai/Llama-4-Maverick-17B-128E-Instruct-FP8
+- TheDrummer/Tunguska-39B-v1, Qwen/Qwen3-235B-A22B-Instruct-2507, and more
+
+**OpenRouter Models (Free Tier):**
+- openrouter/horizon-alpha, arliai/qwq-32b-arliai-rpr-v1:free
+- deepseek/deepseek-chat-v3-0324:free, rekaai/reka-flash-3:free, and more
 
 **NVIDIA Models:**
-- nvidia/llama-3.3-nemotron-super-49b-v1
-- meta/llama-4-scout-17b-16e-instruct
-- meta/llama-4-maverick-17b-128e-instruct
-- qwen/qwq-32b, deepseek-ai/deepseek-r1
+- nvidia/llama-3.3-nemotron-super-49b-v1, meta/llama-4-scout-17b-16e-instruct
+- qwen/qwen3-235b-a22b, deepseek-ai/deepseek-r1, and more
 
 **Hugging Face Models:**
-- meta-llama/Llama-3.3-70B-Instruct
-- deepseek-ai/DeepSeek-V3-0324
-- cognitivecomputations/dolphin-2.9.2-mixtral-8x22b
-- Sao10K/L3-8B-Stheno-v3.2, Sao10K/L3-8B-Lunaris-v1
+- meta-llama/Llama-3.3-70B-Instruct, deepseek-ai/DeepSeek-V3-0324
+- cognitivecomputations/dolphin-2.9.2-mixtral-8x22b, Sao10K/L3-8B-Stheno-v3.2
 
 **Mistral Models:**
-- mistral-large-latest, mistral-medium-latest
+- mistral-large-latest, mistral-medium-latest, open-mistral-nemo
 - magistral-medium-latest, magistral-small-latest
-- open-mistral-nemo
 
-**Cohere Models:**
-- command-a-03-2025, command-r7b-12-2024
-- command-r-plus-08-2024, command-r-08-2024
+**Cohere Models (Free Tier):**
+- command-a-03-2025, command-r7b-12-2024, command-r-plus-08-2024
+
+**Aion Labs Models:**
+- aion-labs/aion-1.0, aion-rp-small
 
 </details>
 
@@ -159,7 +150,6 @@ This system ensures your conversations never get interrupted by rate limits or k
 - **Message Management**: Edit, delete, regenerate any message in conversation
 - **Smart Regeneration**: Regenerate last AI response with one click
 - **Persistent History**: All conversations stored in SQLite database with fast retrieval
-- **Chat Import/Export**: Backup and restore individual character conversations as JSON
 - **Chat History Clear**: Clear conversation history while preserving character's first message
 - **Emoji Picker**: Built-in emoji picker for expressive conversations
 - **Mobile Optimized**: Auto-resizing input, keyboard-aware interface, touch-friendly controls
@@ -178,9 +168,8 @@ This system ensures your conversations never get interrupted by rate limits or k
 
 ### 🎨 Modern UI & Themes
 
-- **🌙 Dark Theme**: Sleek dark interface with glassmorphism effects and modern gradients
-- **☀️ Light Theme**: Clean, bright interface perfect for daytime use with accessibility focus
-- **🎈 Bubble Styles**: Multiple message bubble styles (rounded, square, etc.) for personalization
+- **🎨 10+ Themes**: Instantly change the look and feel. Supported themes include **Dark, Light, Purple, Cyberpunk, Ocean, Forest, Sunset, Rose, Minimal Light,** and **High Contrast**
+- **🎈 Bubble Styles**: Multiple message bubble styles (rounded, angular) for personalization
 - **✨ Smooth Animations**: Polished transitions and micro-interactions throughout the interface
 - **🎯 Modern Components**: Contemporary UI elements with accessibility and usability in mind
 - **🎨 Theme Persistence**: Your theme preference is remembered across sessions
@@ -293,13 +282,12 @@ This system ensures your conversations never get interrupted by rate limits or k
 | Field | Description | Required | Example |
 |-------|-------------|----------|---------|
 | **Name** | Character's name | ✅ | "Luna the Librarian" |
-| **Persona** | Core personality traits | ✅ | "A wise, ancient librarian who loves books and tea" |
+| **Persona** | Core personality, background, and behavior instructions. **This field acts as the complete system prompt.** | ✅ | "A wise, ancient librarian who loves books and tea. You must always speak in a wise, calm tone..." |
 | **Description** | Physical and background details | ❌ | "Tall, silver-haired elf with kind eyes" |
 | **Current Scenario** | Starting situation | ❌ | "Working late in the magical library" |
 | **Appearance** | Detailed looks | ❌ | "Wears flowing robes, carries a glowing staff" |
 | **Avatar URL** | Character image | ❌ | `https://example.com/luna.jpg` |
 | **First Message** | Opening line | ❌ | "Welcome to my library, traveler. How may I help you?" |
-| **System Prompt** | Advanced behavior instructions | ❌ | "Always speak in a wise, calm tone..." |
 
 </details>
 
@@ -308,7 +296,7 @@ This system ensures your conversations never get interrupted by rate limits or k
 <details>
 <summary><strong>LLM Provider Settings</strong></summary>
 
-- **Provider**: Choose your preferred AI service from 7 supported providers
+- **Provider**: Choose your preferred AI service from 9+ supported providers
 - **Model**: Select the specific model to use (including reasoning models)
 - **Temperature** (0.0-2.0): Controls creativity and randomness
   - `0.3`: Very focused and consistent responses
@@ -354,7 +342,7 @@ This system ensures your conversations never get interrupted by rate limits or k
 
 ### 🎨 Themes and Customization
 
-Switch between **Dark** and **Light** themes in settings. Each theme includes:
+Switch between **10+ themes** in settings. Each theme includes:
 - Carefully crafted color palettes optimized for readability and eye comfort
 - Smooth animations and transitions for polished user experience
 - Modern glassmorphism effects and contemporary design elements
@@ -386,8 +374,8 @@ ChunRP/
 │   │   ├── 🗄️ database.js               # SQLite database layer
 │   │   ├── 👤 character-system.js       # Character CRUD operations (exports from SQLite)
 │   │   ├── 👤 character-system-sqlite.js # SQLite-based character operations
-│   │   ├── 🤖 llm-providers.js          # AI provider integrations (7 providers)
-│   │   ├── 🧠 memory-system.js          # Vector memory system with reranking
+│   │   ├── 🤖 llm-providers.js          # AI provider integrations (9+ providers)
+│   │   ├── 🧠 memory-system.js          # Vector memory, embedding, and analysis
 │   │   ├── 🔄 reranking-system.js       # Memory reranking with multiple APIs
 │   │   ├── 📊 vectra-wrapper.js         # Vector database wrapper
 │   │   ├── 🔄 migration.js              # Database migration utilities
@@ -396,12 +384,11 @@ ChunRP/
 │   │   ├── 🏠 index.html                # Main HTML structure
 │   │   ├── 📁 css/
 │   │   │   ├── 🎨 main.css              # Core styles with modern design
-│   │   │   ├── 🌙 themes.css            # Dark/Light theme definitions
+│   │   │   ├── 🌙 themes.css            # All theme definitions
 │   │   │   └── 📱 mobile.css            # Mobile responsiveness
 │   │   ├── 📁 js/
 │   │   │   ├── ⚡ app.js                # Main application logic
-│   │   │   ├── 🧠 memories-api.js       # Memory management frontend
-│   │   │   └── 📱 mobile-ui.js          # Mobile-specific features
+│   │   │   └── 📱 mobile-ui.js          # Mobile-specific UI features
 │   │   └── 📁 assets/                   # Images and icons
 │   └── ⚡ electron.js                   # Desktop app entry point
 ├── 📁 data/
@@ -483,7 +470,7 @@ ChunRP uses SQLite for reliable, fast data storage:
 
 **Characters Table**
 ```sql
-CREATE TABLE characters (
+CREATE TABLE IF NOT EXISTS characters (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT UNIQUE NOT NULL,
   description TEXT DEFAULT '',
@@ -492,7 +479,7 @@ CREATE TABLE characters (
   appearance TEXT DEFAULT '',
   avatar_url TEXT DEFAULT '',
   first_message TEXT DEFAULT '',
-  system_prompt TEXT DEFAULT '',
+  last_journal_index INTEGER DEFAULT 0,
   settings_override TEXT DEFAULT '{}',
   created_at INTEGER NOT NULL,
   modified_at INTEGER NOT NULL
@@ -501,35 +488,36 @@ CREATE TABLE characters (
 
 **Chat Messages Table**
 ```sql
-CREATE TABLE chat_messages (
+CREATE TABLE IF NOT EXISTS chat_messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   character_id INTEGER NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
   content TEXT NOT NULL,
-  timestamp INTEGER NOT NULL,
+  timestamp INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
   FOREIGN KEY (character_id) REFERENCES characters (id) ON DELETE CASCADE
 );
 ```
 
 **Character Relationships Table**
 ```sql
-CREATE TABLE character_relationships (
+CREATE TABLE IF NOT EXISTS character_relationships (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   character_id INTEGER NOT NULL,
   user_name TEXT NOT NULL DEFAULT 'User',
   status TEXT DEFAULT 'neutral',
   sentiment REAL DEFAULT 0.0,
-  updated_at INTEGER NOT NULL,
-  FOREIGN KEY (character_id) REFERENCES characters (id) ON DELETE CASCADE
+  updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+  FOREIGN KEY (character_id) REFERENCES characters (id) ON DELETE CASCADE,
+  UNIQUE(character_id, user_name)
 );
 ```
 
 **Settings Table**
 ```sql
-CREATE TABLE settings (
+CREATE TABLE IF NOT EXISTS settings (
   id INTEGER PRIMARY KEY,
   data TEXT NOT NULL,
-  updated_at INTEGER NOT NULL
+  updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
 );
 ```
 
@@ -578,10 +566,11 @@ CREATE TABLE settings (
 - **👁️ Memory Viewer**: Browse and manage character memories through dedicated side panel
 - **🤖 Reasoning Model Support**: Robust handling of thinking blocks and malformed JSON responses
 - **📊 Progress Tracking**: Real-time memory creation progress with detailed status updates
-- **🔧 Provider Optimization**: Streamlined to 7 reliable providers with extensive free model selection
+- **🔧 Provider Expansion**: Now supporting 9+ providers including new additions like Chutes and Aion Labs
 - **⚡ Performance Improvements**: Significantly faster data operations with SQLite queries
 - **🛡️ Data Integrity**: Foreign key constraints and ACID compliance prevent data corruption
-- **🎨 Enhanced UI**: Improved themes, better mobile experience, and modern design elements
+- **🎨 Enhanced UI**: Improved themes (10+ options), better mobile experience, and modern design elements
+- **🎯 Persona System Update**: The persona field now acts as the complete system prompt for maximum control
 
 ### 🔑 API Key Management Revolution
 
