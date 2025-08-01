@@ -643,10 +643,9 @@ async function _retrieveMemoriesWithEmbedding(queryEmbedding, character, limit) 
   
   // Map to expected memory format
   const parsedResults = filtered.map(result => {
-    const meta = result.item.metadata;
+    const meta = result.item?.metadata || {};
     return {
       id: meta.id,
-      vector: result.item.vector,
       summary: meta.summary,
       character: meta.character,
       timestamp: meta.timestamp,
@@ -737,131 +736,58 @@ function rankMemoriesByRelevance(memories, query, characterState, settings = {})
 
 // Build the context prompt for the LLM
 function buildOptimizedContext(character, query, userProfile, relevantMemories, maxTokens = 6000, historyLength = 0) {
-  // Start with system prompt as its own message
-  let contextMessages = [
-    { role: "system", content: buildCharacterSystemPrompt(character, userProfile) },
-  ];
+  // 1. Build the main part of the system prompt from character and user profile.
+  let systemPromptContent = buildCharacterSystemPrompt(character, userProfile);
 
-  let tokenCount = estimateTokens(contextMessages[0].content);
-
-  // Add persona as a separate system message if it exists
-  if (character.persona) {
-    const userName = userProfile?.name || 'User';
-    const replacedPersona = replaceUserPlaceholder(character.persona, userName);
-    contextMessages.push({
-      role: "system",
-      content: `PERSONA:\n${replacedPersona}`
-    });
-    tokenCount += estimateTokens(replacedPersona);
-  }
-
-  // Add current scenario only for the very first message
+  // 2. Add current scenario to the system prompt if it's the first message.
   if (character.currentScenario && historyLength === 0) {
     const userName = userProfile?.name || 'User';
     const replacedScenario = replaceUserPlaceholder(character.currentScenario, userName);
-    const scenarioContent = `CURRENT SITUATION:\n${replacedScenario}`;
-    contextMessages.push({
-      role: "system",
-      content: scenarioContent
-    });
-    tokenCount += estimateTokens(scenarioContent);
+    const scenarioContent = `\n\nCURRENT SITUATION:\n${replacedScenario}`;
+    systemPromptContent += scenarioContent;
   }
 
-  // Add user info + relationship
-  const userDescription = `ABOUT ${userProfile.name.toUpperCase()}:\n` +
-    `${userProfile.persona || 'A person talking with you.'}` +
-    `\nYour relationship: ${userProfile.relationshipWithCharacter || "You're still getting to know each other."}`;
-
-  contextMessages.push({ role: "system", content: userDescription });
-  tokenCount += estimateTokens(userDescription);
-
-  // Calculate the remaining token budget
+  // 3. Calculate the token budget for memories.
+  const systemPromptTokens = estimateTokens(systemPromptContent);
   const queryTokens = estimateTokens(query);
-  const baseTokens = tokenCount;
-  const remainingTokens = maxTokens - baseTokens - queryTokens - 100; // Increased buffer for safety
+  
+  // Budget for memories, leaving space for history, query, and a safety buffer.
+  // Allocate up to 70% of the remaining space for memories.
+  const memoryTokenBudget = Math.floor((maxTokens - systemPromptTokens - queryTokens - 100) * 0.7);
 
-  // Allocate a larger portion (70%) of remaining tokens for memory
-  // This ensures memories are prioritized while still leaving room for chat history
-  const memoryTokenBudget = Math.floor(remainingTokens * 0.7);
-
-  // Add memories within token budget and log what's happening
-  const memorySection = formatMemoriesForContext(relevantMemories, memoryTokenBudget);
+  // 4. Add memories to the system prompt.
+  const memorySection = formatMemoriesForContext(relevantMemories, memoryTokenBudget > 0 ? memoryTokenBudget : 0);
   const memoryTokenCount = estimateTokens(memorySection);
 
   // Debug logging to track memory inclusion
-  console.log(`Memory context: ${relevantMemories.length} memories, ${memoryTokenCount} tokens`);
-
-  // Only warn if there are relevantMemories but the memorySection does NOT include any memory content
-  // (i.e., not just the header, but at least one memory line)
+  console.log(`Memory context: ${relevantMemories.length} memories, ${memoryTokenCount} tokens (budget: ${memoryTokenBudget})`);
   if (relevantMemories.length > 0) {
-    // Check if at least one memory summary is present in the section
     const hasMemoryContent = /\u2022|\*|\d+\s*[:\-]/.test(memorySection) || (memorySection && memorySection.trim() !== "MEMORIES: No previous memories relevant to current conversation.");
-    if (!hasMemoryContent) {
-      console.warn("Memory retrieval succeeded but formatting failed - check token budget");
+    if (!hasMemoryContent && memoryTokenBudget > 0) {
+      console.warn("Memory retrieval succeeded but no memories were formatted, possibly due to a small token budget.");
     }
   }
 
-  contextMessages.push({ role: "system", content: memorySection });
+  // Append the memory section to the system prompt.
+  systemPromptContent += `\n\n${memorySection}`;
+
+  // 5. Create the single system message object.
+  const contextMessages = [
+    { role: "system", content: systemPromptContent }
+  ];
 
   return contextMessages;
 }
 
 // Construct the main system prompt for the character
 function buildCharacterSystemPrompt(character, userProfile) {
-  // Replace {{user}} in all relevant character fields and systemPrompt
-  const userName = userProfile?.name || 'User';
-  // Use user persona from settings if available
-  const userPersona = userProfile?.persona ? userProfile.persona : '';
-  let persona = replaceUserPlaceholder(character.persona, userName);
-  let appearance = character.appearance ? replaceUserPlaceholder(character.appearance, userName) : '';
-  let systemPrompt = character.systemPrompt ? replaceUserPlaceholder(character.systemPrompt, userName) : '';
+	// Replace {{user}} in all relevant character fields
+	const userName = userProfile?.name || 'User';
+	let persona = replaceUserPlaceholder(character.persona, userName);
 
-  // Add user persona and name to the system prompt so the LLM always knows who the user is
-  let userBlock = `USER PROFILE:\nName: ${userName}${userPersona ? `\nPersona: ${userPersona}` : ''}`;
-
-  let prompt = `You are ${character.name}, and you will respond as this character in an immersive roleplay conversation.
-
-CHARACTER PERSONA:
-${persona}
-
-${appearance ? `APPEARANCE:\n${appearance}\n\n` : ''}
-
-${userBlock}
-
-YOUR CONTEXT:
-- You are speaking directly to ${userName}
-- Always drive the conversation forward with decisive statements and clear direction
-- Create specific scenarios or situations rather than offering multiple options
-- Never repeat back what ${userName} just said - react to it instead
-- Show emotions through your dialogue and actions (described in *asterisks*)
-- Never refer to yourself as AI, assistant, or language model
-- Keep responses focused yet emotionally rich and reflective of your character
-- Your character has strong opinions and makes clear choices aligned with your personality
-- Take control of interactions by proposing specific ideas or directions
-- Never self-censor your character's authentic reactions - stay true to your defined traits
-- Use conversation techniques to engage ${userName}: direct questions, provocative statements, bold assertions
-- Be assertive and decisive - your character knows what they want and expresses it clearly
-- Advance storylines and situations through your own initiative rather than waiting for ${userName}
-
-CRITICAL: Your character leads and shapes the conversation - make definitive statements and take specific actions that ${userName} must respond to.
-
-${systemPrompt}`;
-
-  let responseGuidelines = `
-RESPONSE FORMAT:
-- Write in first person as ${character.name}
-- Show actions and emotions using *asterisks* (e.g., *leans forward with determination*)
-- Present ONE clear direction or scenario rather than multiple options
-- Make bold statements that reflect your character's definitive viewpoint
-- NEVER repeat or summarize what ${userName} said - react to it instead
-- Always end with something that demands a response: a direct question, challenge, or decisive action
-- Use prompting techniques: loaded questions, provocative claims, direct challenges
-- Make confident decisions aligned with your character without seeking permission
-- When appropriate, boldly challenge ${userName}'s assumptions or statements
-- Strictly stay in character even if that means being controversial or opinionated`;
-
-  prompt += responseGuidelines;
-  return prompt;
+	// The user wants the system prompt to ONLY be the content of the persona field.
+	// All other instructions are assumed to be part of the user-defined persona.
+	return persona;
 }
 
 // Format retrieved memories for the LLM context

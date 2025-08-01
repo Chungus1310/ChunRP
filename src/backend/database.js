@@ -53,7 +53,7 @@ function createTables() {
       appearance TEXT DEFAULT '',
       avatar_url TEXT DEFAULT '',
       first_message TEXT DEFAULT '',
-      system_prompt TEXT DEFAULT '',
+      last_journal_index INTEGER DEFAULT 0,
       settings_override TEXT DEFAULT '{}',
       created_at INTEGER NOT NULL,
       modified_at INTEGER NOT NULL

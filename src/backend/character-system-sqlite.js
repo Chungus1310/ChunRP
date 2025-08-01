@@ -10,7 +10,6 @@ const characterSchema = {
   appearance: "", 
   avatarUrl: "", 
   firstMessage: "", 
-  systemPrompt: "", 
   settingsOverride: {}, 
   createdAt: Date.now(),
   modifiedAt: Date.now(),
@@ -19,7 +18,8 @@ const characterSchema = {
       status: 'neutral',
       sentiment: 0.0
     }
-  }
+  },
+  lastJournalIndex: 0
 };
 
 // Helper function to convert database row to character object
@@ -35,11 +35,11 @@ function dbRowToCharacter(row, relationships = []) {
     appearance: row.appearance || '',
     avatarUrl: row.avatar_url || '',
     firstMessage: row.first_message || '',
-    systemPrompt: row.system_prompt || '',
     settingsOverride: JSON.parse(row.settings_override || '{}'),
     createdAt: row.created_at,
     modifiedAt: row.modified_at,
-    relationships: {}
+    relationships: {},
+    lastJournalIndex: row.last_journal_index || 0
   };
   
   // Add relationships
@@ -85,7 +85,7 @@ function createCharacter(characterData) {
     const insertStmt = db.prepare(`
       INSERT INTO characters (
         name, description, current_scenario, persona, appearance,
-        avatar_url, first_message, system_prompt, settings_override,
+        avatar_url, first_message, settings_override, last_journal_index,
         created_at, modified_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
@@ -98,8 +98,8 @@ function createCharacter(characterData) {
       characterData.appearance || '',
       characterData.avatarUrl || '',
       characterData.firstMessage || '',
-      characterData.systemPrompt || '',
       JSON.stringify(characterData.settingsOverride || {}),
+      0, // last_journal_index
       now,
       now
     );
@@ -241,8 +241,8 @@ function updateCharacter(characterName, updateData) {
       appearance: 'appearance',
       avatarUrl: 'avatar_url',
       firstMessage: 'first_message',
-      systemPrompt: 'system_prompt',
-      settingsOverride: 'settings_override'
+      settingsOverride: 'settings_override',
+      lastJournalIndex: 'last_journal_index'
     };
     
     for (const [jsField, dbField] of Object.entries(fieldMap)) {
@@ -250,6 +250,8 @@ function updateCharacter(characterName, updateData) {
         updateFields.push(`${dbField} = ?`);
         if (jsField === 'settingsOverride') {
           updateValues.push(JSON.stringify(updateData[jsField]));
+        } else if (jsField === 'lastJournalIndex') {
+          updateValues.push(updateData[jsField] || 0);
         } else {
           updateValues.push(updateData[jsField]);
         }
@@ -332,9 +334,13 @@ function loadChatHistory(characterName) {
 
 // Utility to strip <think>...</think> tags and their content from a string
 function stripThinkTags(text) {
-  if (typeof text !== 'string') return text;
+  // Hardened: Ensure we always work with a string and return a string, even for null/undefined input.
+  if (typeof text !== 'string') {
+    return '';
+  }
   // Remove all <think>...</think> blocks, including multiline
-  return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
+             .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
 }
 
 // Save chat history for a character
@@ -362,16 +368,19 @@ function saveChatHistory(characterName, chatHistory) {
       deleteStmt.run(charRow.id);
       
       for (const message of chatHistory) {
-        if (message.role && message.content) {
+        // Ensure message and its core properties are valid
+        if (message && message.role && typeof message.content !== 'undefined' && message.content !== null) {
           // Strip <think> tags from content before saving
           const filteredContent = stripThinkTags(message.content);
+          // Only insert if there's actual content after stripping tags
           if (filteredContent.length > 0) {
-            insertStmt.run(
-              charRow.id,
-              message.role,
-              filteredContent,
-              message.timestamp || Date.now()
-            );
+            // --- FIX: Ensure all bound parameters are of a valid type to prevent crashes ---
+            const characterId = charRow.id;
+            const role = String(message.role);
+            const content = String(filteredContent);
+            const timestamp = (typeof message.timestamp === 'number' && !isNaN(message.timestamp)) ? message.timestamp : Date.now();
+            
+            insertStmt.run(characterId, role, content, timestamp);
           }
         }
       }

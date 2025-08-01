@@ -13,22 +13,19 @@ function isMobile() {
 
 // Toast notification system
 function displayToast(message, type = 'info', duration = 4000) {
-  // Remove existing toast if any
-  const existingToast = document.querySelector('.toast-notification');
-  if (existingToast) {
-    existingToast.remove();
-  }
+  const notificationArea = document.getElementById('notification-area');
+  if (!notificationArea) return;
 
   const toast = document.createElement('div');
   toast.className = `toast-notification toast-${type}`;
   toast.innerHTML = `
     <div class="toast-content">
       <span class="toast-message">${message}</span>
-      <button class="toast-close">&times;</button>
+      <button class="toast-close" aria-label="Close">&times;</button>
     </div>
   `;
 
-  document.body.appendChild(toast);
+  notificationArea.appendChild(toast);
 
   // Show toast
   setTimeout(() => toast.classList.add('show'), 100);
@@ -41,11 +38,11 @@ function displayToast(message, type = 'info', duration = 4000) {
 }
 
 function hideToast(toast) {
+  if (!toast) return;
   toast.classList.remove('show');
   setTimeout(() => {
-    if (toast.parentNode) {
-      toast.parentNode.removeChild(toast);
-    }
+    // Check if toast is still in the DOM before removing
+    if (toast.parentElement) toast.parentElement.removeChild(toast);
   }, 300);
 }
 
@@ -53,7 +50,7 @@ function hideToast(toast) {
 function updateConnectionStatus(isConnected) {
   connectionStatus.isConnected = isConnected;
   connectionStatus.lastHeartbeat = Date.now();
-  
+
   const statusIndicator = document.querySelector('.connection-status');
   if (statusIndicator) {
     statusIndicator.classList.toggle('connected', isConnected);
@@ -67,14 +64,14 @@ async function performHeartbeat() {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-    
+
     const response = await fetch('/api/health', {
       method: 'GET',
       signal: controller.signal
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     if (response.ok) {
       if (!connectionStatus.isConnected) {
         displayToast('Connection restored', 'success', 2000);
@@ -97,22 +94,22 @@ async function performHeartbeat() {
 function startConnectionMonitoring() {
   // Initial heartbeat
   performHeartbeat();
-  
+
   // More frequent heartbeat for mobile devices
   const heartbeatInterval = isMobile() ? 5000 : 10000;
-  setInterval(performHeartbeat, heartbeatInterval);
-  
+  heartbeatIntervalId = setInterval(performHeartbeat, heartbeatInterval);
+
   // Enhanced network change detection
   window.addEventListener('online', async () => {
     displayToast('Connection restored', 'success', 2000);
     updateConnectionStatus(true);
   });
-  
+
   window.addEventListener('offline', () => {
     displayToast('Connection lost', 'warning', 5000);
     updateConnectionStatus(false);
   });
-  
+
   // Page visibility change (mobile app switching)
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
@@ -127,41 +124,41 @@ async function makeRequest(url, options = {}, timeout = 30000, retries = 2) {
   // Mobile-optimized timeouts and retries
   const mobileTimeout = isMobile() ? Math.max(timeout, 60000) : timeout;
   const mobileRetries = isMobile() ? Math.max(retries, 3) : retries;
-  
+
   for (let attempt = 0; attempt <= mobileRetries; attempt++) {
     try {
       const controller = new AbortController();
-      
+
       // Store the controller globally so it can be cancelled
       if (url.includes('/api/chat') && options.method === 'POST') {
         state.currentAbortController = controller;
       }
-      
+
       const timeoutId = setTimeout(() => controller.abort(), mobileTimeout);
-      
+
       const response = await fetch(url, {
         ...options,
         signal: controller.signal
       });
-      
+
       clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
         const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
         error.response = response; // Attach response for error handling
         throw error;
       }
-      
+
       // Update connection status on successful request
       if (!connectionStatus.isConnected) {
         updateConnectionStatus(true);
       }
-      
+
       // Clear the abort controller on success
       if (state.currentAbortController === controller) {
         state.currentAbortController = null;
       }
-      
+
       return response;
     } catch (error) {
       if (error.name === 'AbortError') {
@@ -169,17 +166,17 @@ async function makeRequest(url, options = {}, timeout = 30000, retries = 2) {
       } else {
         console.warn(`Request failed (attempt ${attempt + 1}/${mobileRetries + 1}):`, error.message);
       }
-      
+
       // Clear the abort controller on error
       if (state.currentAbortController) {
         state.currentAbortController = null;
       }
-      
+
       if (attempt === mobileRetries) {
         updateConnectionStatus(false);
         throw error;
       }
-      
+
       // Exponential backoff with mobile-friendly delays
       const delay = Math.min(Math.pow(2, attempt) * 2000, 10000);
       await new Promise(resolve => setTimeout(resolve, delay));
@@ -188,9 +185,17 @@ async function makeRequest(url, options = {}, timeout = 30000, retries = 2) {
 }
 
 // --- SSE LOG LISTENER ---
+let logSource = null; // Store reference for cleanup
+let heartbeatIntervalId = null; // Store heartbeat interval reference
+
 function setupLogListener() {
   try {
-    const logSource = new EventSource('/api/logs');
+    // Close existing connection if any
+    if (logSource) {
+      logSource.close();
+    }
+    
+    logSource = new EventSource('/api/logs');
     logSource.onmessage = (event) => {
       if (event.data) {
         // Print backend logs to frontend console
@@ -204,6 +209,23 @@ function setupLogListener() {
     console.warn('Failed to set up backend log listener:', e);
   }
 }
+
+// Cleanup function for when page is unloaded
+function cleanup() {
+  if (logSource) {
+    logSource.close();
+    logSource = null;
+  }
+  
+  if (heartbeatIntervalId) {
+    clearInterval(heartbeatIntervalId);
+    heartbeatIntervalId = null;
+  }
+}
+
+// Add cleanup on page unload
+window.addEventListener('beforeunload', cleanup);
+window.addEventListener('unload', cleanup);
 
 // Main application JavaScript for Immersive Roleplay Chat
 // Implements the frontend functionality as described in PLAN.md
@@ -318,7 +340,7 @@ async function initApp() {
   try {
     // Start connection monitoring
     startConnectionMonitoring();
-    
+
     // Load settings
     await loadSettings();
 
@@ -337,7 +359,7 @@ async function initApp() {
 
     // Set up event listeners
     setupEventListeners();
-    
+
     // Initialize emoji picker
     initEmojiPicker();
 
@@ -353,10 +375,10 @@ async function initApp() {
         e.target.value = '';
       });
     }
-    
+
     // Add connection status indicator to the UI
     addConnectionStatusIndicator();
-    
+
   } catch (error) {
     console.error('Error initializing app:', error);
     displayToast('Failed to initialize application. Please check the console for details.', 'error', 8000);
@@ -367,12 +389,12 @@ async function initApp() {
 function addConnectionStatusIndicator() {
   // Check if indicator already exists
   if (document.querySelector('.connection-status')) return;
-  
+
   const indicator = document.createElement('div');
   indicator.className = 'connection-status connected';
   indicator.title = 'Connected';
   indicator.innerHTML = '<div class="status-dot"></div>';
-  
+
   // Add to header or appropriate location
   const header = document.querySelector('.header') || document.querySelector('.chat-header') || document.body;
   header.appendChild(indicator);
@@ -417,13 +439,13 @@ async function saveSettings(settings) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings)
     }, 15000, 2);
-    
+
     state.settings = await response.json();
-    
+
     // Apply theme and bubble style
     applyTheme(state.settings.theme);
     applyBubbleStyle(state.settings.bubbleStyle);
-    
+
     return state.settings;
   } catch (error) {
     console.error('Error saving settings:', error);
@@ -467,12 +489,12 @@ async function loadCharacters() {
 // Render the character list in the sidebar
 function renderCharacterList() {
   dom.characterList.innerHTML = '';
-  
+
   if (state.characters.length === 0) {
     dom.characterList.innerHTML = '<div class="empty-list">No characters found. Create a new one!</div>';
     return;
   }
-  
+
   state.characters.forEach(character => {
     const card = document.createElement('div');
     card.className = `character-card ${state.activeCharacter?.name === character.name ? 'active' : ''}`;
@@ -534,9 +556,9 @@ async function selectCharacter(characterName) {
     // Find the character in state
     const character = state.characters.find(c => c.name === characterName);
     if (!character) return;
-    
+
     state.activeCharacter = character;
-    
+
     // Update UI
     dom.characterName.textContent = character.name;
     // Set the character avatar in the header
@@ -547,7 +569,7 @@ async function selectCharacter(characterName) {
     };
     dom.welcomeScreen.classList.add('hidden');
     dom.chatContainer.classList.remove('hidden');
-    
+
     // Fix sidebar state management - ensure sidebar is properly visible on desktop
     if (!isMobile()) {
       // On desktop, make sure sidebar is always visible after character selection
@@ -556,23 +578,23 @@ async function selectCharacter(characterName) {
       // On mobile, collapse sidebar after character selection to show chat
       dom.sidebar.classList.remove('expanded');
     }
-    
+
     // Highlight the selected character in the list
     const characterCards = document.querySelectorAll('.character-card');
     characterCards.forEach(card => {
       card.classList.toggle('active', card.dataset.characterName === characterName);
     });
-    
+
     // Load chat history
-    await loadChatHistory(characterName); 
-    
+    await loadChatHistory(characterName);
+
 
     if (state.chatHistory.length === 0) {
       console.log("Chat history empty, not adding first message.");
     } else {
       console.log("Chat history loaded:", state.chatHistory); // Added log
     }
-    
+
     // Render whatever is now in state.chatHistory
     renderChatHistory();
     scrollToBottom();
@@ -591,26 +613,26 @@ async function selectCharacter(characterName) {
 async function loadChatHistory(characterName) {
   try {
     const response = await makeRequest(`${API.CHAT}/${characterName}`, {}, 10000, 1);
-    
+
     // Check if the request was successful and response is valid
     if (!response.ok) {
-       console.warn(`Failed to load chat history for ${characterName}, status: ${response.status}. Assuming empty history.`);
-       state.chatHistory = []; // Ensure state is empty array
-       return [];
+      console.warn(`Failed to load chat history for ${characterName}, status: ${response.status}. Assuming empty history.`);
+      state.chatHistory = []; // Ensure state is empty array
+      return [];
     }
-    
+
     const history = await response.json();
-    
+
     // Ensure the loaded history is actually an array
     if (!Array.isArray(history)) {
-        console.error(`Loaded chat history for ${characterName} is not an array:`, history);
-        state.chatHistory = []; // Ensure state is empty array
-        return [];
+      console.error(`Loaded chat history for ${characterName} is not an array:`, history);
+      state.chatHistory = []; // Ensure state is empty array
+      return [];
     }
-    
+
     state.chatHistory = history;
     return state.chatHistory;
-    
+
   } catch (error) {
     console.error('Error loading or parsing chat history:', error);
     state.chatHistory = []; // Ensure state is empty array on any error
@@ -621,7 +643,7 @@ async function loadChatHistory(characterName) {
 // Save chat history for the active character
 async function saveChatHistory() {
   if (!state.activeCharacter) return;
-  
+
   try {
     await makeRequest(`${API.CHAT}/${state.activeCharacter.name}`, {
       method: 'PUT',
@@ -637,25 +659,25 @@ async function saveChatHistory() {
 // Clear chat history for the active character
 async function clearChatHistory() {
   if (!state.activeCharacter) return;
-  
+
   try {
     // Call the backend API to clear chat history (which now preserves the first message)
     const response = await makeRequest(`${API.CHAT}/${state.activeCharacter.name}`, {
       method: 'DELETE'
     }, 10000, 1);
-    
+
     if (!response.ok) {
       throw new Error('Failed to clear chat history');
     }
-    
+
     // Load the chat history again to get the preserved first message
     await loadChatHistory(state.activeCharacter.name);
-    
+
     // Show success message
     showSuccessMessage('Chat history cleared');
-    
+
     // No need to manually set state.chatHistory as loadChatHistory handles it
-    
+
     renderChatHistory();
     scrollToBottom();
   } catch (error) {
@@ -887,38 +909,24 @@ function createMessageElement(message, index) {
   contentDiv.className = 'message-content';
   const bubbleDiv = document.createElement('div');
   bubbleDiv.className = 'message-bubble';
-  marked.setOptions({ breaks: true, gfm: true, sanitize: false });
-  // Defensive: always use a string for content
-  let safeContent = typeof message.content === 'string' ? message.content : '';
-  // Strip <think>...</think> from all assistant messages regardless of model
-  let filteredContent = safeContent;
-  if (message.role === 'assistant') {
-    // Remove all <think>...</think> blocks (non-greedy)
-    filteredContent = filteredContent.replace(/<think>[\s\S]*?<\/think>/gi, '');
-  }
 
-  const replacedContent = replaceUserPlaceholder(filteredContent);
-  bubbleDiv.dataset.originalContent = safeContent;
-  bubbleDiv.innerHTML = marked.parse(replacedContent);
-
-  // If failed, add error indicator and retry button
+  // --- NEW: Handle rendering for failed messages ---
   if (message.failed) {
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'message-error';
-    errorDiv.innerHTML = '<span style="color:var(--error-color)"><i class="ri-error-warning-line"></i> Generation failed.</span>';
-    bubbleDiv.appendChild(errorDiv);
-    const retryBtn = document.createElement('button');
-    retryBtn.className = 'btn icon-btn message-action-btn retry-btn';
-    retryBtn.innerHTML = '<i class="ri-refresh-line"></i> Retry';
-    retryBtn.onclick = () => {
-      if (!state.isGenerating) {
-        message.retrying = true;
-        renderChatHistory();
-        sendMessage(index);
-      }
-    };
-    bubbleDiv.appendChild(retryBtn);
+    // For failed messages, the content is the error message. Render it safely.
+    bubbleDiv.innerHTML = `<div class="message-error-content"><i class="ri-error-warning-line"></i><span>${message.content}</span></div>`;
+  } else {
+    // Original rendering logic for successful messages
+    marked.setOptions({ breaks: true, gfm: true, sanitize: false });
+    let safeContent = typeof message.content === 'string' ? message.content : '';
+    let filteredContent = safeContent;
+    if (message.role === 'assistant') {
+      filteredContent = filteredContent.replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, '');
+    }
+    const replacedContent = replaceUserPlaceholder(filteredContent);
+    bubbleDiv.dataset.originalContent = safeContent;
+    bubbleDiv.innerHTML = marked.parse(replacedContent);
   }
+
   if (message.pending) {
     const pendingDiv = document.createElement('div');
     pendingDiv.className = 'message-pending';
@@ -932,58 +940,61 @@ function createMessageElement(message, index) {
   const messageTime = message.timestamp ? new Date(message.timestamp) : new Date();
   timeDiv.textContent = messageTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  // Actions
-  const messageActionsDiv = document.createElement('div');
-  messageActionsDiv.className = 'message-inline-actions';
-  // Edit
-  const editBtn = document.createElement('button');
-  editBtn.className = 'btn icon-btn message-action-btn edit-btn';
-  editBtn.innerHTML = '<i class="ri-pencil-line"></i>';
-  editBtn.title = 'Edit Message';
-  editBtn.addEventListener('click', () => handleEditMessage(index));
-  messageActionsDiv.appendChild(editBtn);
-  // Multi-Delete
-  if (message.role === 'user') {
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'btn icon-btn message-action-btn delete-from-here-btn';
-    deleteBtn.innerHTML = '<i class="ri-delete-bin-line"></i>';
-    deleteBtn.title = 'Delete From Here';
-    deleteBtn.addEventListener('click', () => handleMultiDelete(index));
-    messageActionsDiv.appendChild(deleteBtn);
+  // Actions (only show for non-failed messages)
+  if (!message.failed) {
+    const messageActionsDiv = document.createElement('div');
+    messageActionsDiv.className = 'message-inline-actions';
+    // Edit
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn icon-btn message-action-btn edit-btn';
+    editBtn.innerHTML = '<i class="ri-pencil-line"></i>';
+    editBtn.title = 'Edit Message';
+    editBtn.addEventListener('click', () => handleEditMessage(index));
+    messageActionsDiv.appendChild(editBtn);
+    // Multi-Delete
+    if (message.role === 'user') {
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'btn icon-btn message-action-btn delete-from-here-btn';
+      deleteBtn.innerHTML = '<i class="ri-delete-bin-line"></i>';
+      deleteBtn.title = 'Delete From Here';
+      deleteBtn.addEventListener('click', () => handleMultiDelete(index));
+      messageActionsDiv.appendChild(deleteBtn);
+    }
+
+    messageDiv.appendChild(messageActionsDiv);
   }
 
   contentDiv.appendChild(bubbleDiv);
   contentDiv.appendChild(timeDiv);
   messageDiv.appendChild(avatarDiv);
   messageDiv.appendChild(contentDiv);
-  messageDiv.appendChild(messageActionsDiv);
   return messageDiv;
 }
 
 // Send a message to the character
 async function sendMessage() {
   const message = dom.messageInput.value.trim();
-  
+
   if (!message || !state.activeCharacter || state.isGenerating) {
     return;
   }
 
   // Generate unique message ID
   const messageId = ++state.lastMessageId;
-  
+
   try {
     // Add user message to chat history
     state.chatHistory.push({ role: 'user', content: message, id: messageId });
     renderChatHistory();
-    
+
     // Clear input and show generating
     dom.messageInput.value = '';
     state.isGenerating = true;
     addGeneratingIndicator();
-    
+
     // Notify user about potential wait time for complex processing
     displayToast('Starting response generation. Complex responses may take up to 5 minutes.', 'info', 6000);
-    
+
     // Send message with longer timeout for mobile and include message ID
     const response = await makeRequest(API.CHAT, {
       method: 'POST',
@@ -994,67 +1005,40 @@ async function sendMessage() {
         messageId, // Include message ID for server-side caching
         settings: state.settings
       })
-    }, 600000, 3); // 10 minute timeout, 3 retries for mobile
-    
+    }, 600000, 1); // 10 minute timeout, 1 retry (2 total attempts)
+
     const data = await response.json();
-    
+
     // Remove generating indicator
     removeGeneratingIndicator();
-    
+
     // Validate response
     if (!data.response || typeof data.response !== 'string') {
       throw new Error('Invalid response from server');
     }
-    
+
     // Check for duplicate before adding (in case recovery system already added it)
     const lastMessage = state.chatHistory[state.chatHistory.length - 1];
-    const isDuplicate = lastMessage && 
-                       lastMessage.role === 'assistant' && 
-                       lastMessage.content === data.response;
-    
+    const isDuplicate = lastMessage &&
+      lastMessage.role === 'assistant' &&
+      lastMessage.content === data.response;
+
     if (!isDuplicate) {
       // Add assistant response to chat history
       state.chatHistory.push({ role: 'assistant', content: data.response });
       renderChatHistory();
     }
-    
+
     // Save chat history
     await saveChatHistory();
-    
+
   } catch (error) {
     console.error('Error sending message:', error);
     removeGeneratingIndicator();
-    
-    // Check if it was cancelled by user
-    if (error.name === 'AbortError' && !state.currentAbortController) {
-      // User cancelled - remove the user message that was added and cleanup
-      if (state.chatHistory.length > 0 && state.chatHistory[state.chatHistory.length - 1].role === 'user') {
-        state.chatHistory.pop();
-        renderChatHistory();
-      }
-      return; // Don't show error message for user cancellation
-    }
-    
-    // For connection errors, don't retry immediately
-    if (!error.message.includes('HTTP') && !connectionStatus.isConnected) {
-      displayToast('Message sent, waiting for response...', 'info', 5000);
-      state.isGenerating = false;
-      state.currentAbortController = null;
-      return;
-    }
-    
-    // For other errors, cleanup and show error
-    
-    // Remove the user message that failed to get a response
-    if (state.chatHistory.length > 0 && state.chatHistory[state.chatHistory.length - 1].role === 'user') {
-      state.chatHistory.pop();
-      renderChatHistory();
-    }
-    
-    // Try to extract the actual error message from the API response
-    let errorMessage = 'Failed to generate response.';
-    
-    // Check if this is an HTTP error with a JSON response containing error details
+
+    // --- NEW LOGIC FOR IN-CHAT ERROR DISPLAY ---
+    // 1. Determine the error message
+    let errorMessage = 'Failed to generate response. Please check the server logs.';
     if (error.response) {
       try {
         const errorData = await error.response.json();
@@ -1062,24 +1046,37 @@ async function sendMessage() {
           errorMessage = errorData.error;
         }
       } catch (parseError) {
-        // If we can't parse the error response, fall back to status-based messages
-        if (error.message.includes('HTTP 429')) {
-          errorMessage = 'Server is busy. Please wait a moment and try again.';
-        } else if (error.message.includes('HTTP 5')) {
-          errorMessage = 'Server error. Please try again in a moment.';
-        }
+        errorMessage = `Request failed with status: ${error.response.status}. Please try again.`;
       }
     } else if (error.name === 'AbortError') {
-      errorMessage = 'Request timed out after 10 minutes. Please try a shorter or simpler message.';
-    } else if (error.message.includes('HTTP 429')) {
-      errorMessage = 'Server is busy. Please wait a moment and try again.';
-    } else if (error.message.includes('HTTP 5')) {
-      errorMessage = 'Server error. Please try again in a moment.';
+      // Don't show an error if the user cancelled it
+      if (state.currentAbortController) { // Abort was from timeout, not user
+        errorMessage = 'Request timed out. The server might be busy or the request is too complex.';
+      } else { // User cancelled
+        // Remove the user message that was optimistically added
+        if (state.chatHistory.length > 0 && state.chatHistory[state.chatHistory.length - 1].role === 'user') {
+          state.chatHistory.pop();
+          renderChatHistory();
+        }
+        return; // Exit without showing an error
+      }
     } else if (!connectionStatus.isConnected) {
-      errorMessage = 'No connection to server. Please check your internet connection.';
+      errorMessage = 'No connection to server. Your message will be sent when connection is restored.';
     }
-    
-    displayToast(errorMessage, 'error', 10000); // Show for 10 seconds since error messages might be longer
+
+    // 2. Add a "failed" assistant message to the chat history for UI display
+    state.chatHistory.push({
+      role: 'assistant',
+      content: errorMessage,
+      failed: true // Custom flag for the renderer
+    });
+
+    // 3. Re-render the chat to show the user's message and the error response
+    renderChatHistory();
+    scrollToBottom();
+
+    // 4. IMPORTANT: Do NOT save this failed state to the permanent chat history.
+    // The user can then choose to edit their message, try again, or continue.
   } finally {
     state.isGenerating = false;
     state.currentAbortController = null;
@@ -1103,10 +1100,10 @@ function addGeneratingIndicator() {
       </button>
     </div>
   `;
-  
+
   dom.chatMessages.appendChild(indicatorDiv);
   scrollToBottom();
-  
+
   // Add cancel button functionality
   const cancelBtn = indicatorDiv.querySelector('.cancel-generation-btn');
   cancelBtn.addEventListener('click', () => {
@@ -1115,28 +1112,28 @@ function addGeneratingIndicator() {
       displayToast('Response generation cancelled', 'info', 3000);
     }
   });
-  
+
   // Add a progress timer to show elapsed time
   const startTime = Date.now();
   const timeSpan = indicatorDiv.querySelector('.generating-time');
-  
+
   const timeInterval = setInterval(() => {
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
     const minutes = Math.floor(elapsed / 60);
     const seconds = elapsed % 60;
-    
+
     if (minutes > 0) {
       timeSpan.textContent = `Processing for ${minutes}m ${seconds}s...`;
     } else {
       timeSpan.textContent = `Processing for ${seconds}s...`;
     }
-    
+
     // If it's been over 2 minutes, show encouraging message
     if (elapsed > 120) {
       timeSpan.textContent += ' (Complex response in progress, please wait)';
     }
   }, 1000);
-  
+
   // Store the interval so we can clear it when removing the indicator
   indicatorDiv.dataset.timeInterval = timeInterval;
 }
@@ -1174,7 +1171,7 @@ function scrollToBottom() {
 // Show the character creation/editing modal
 function showCharacterModal(character = null) {
   const isEditing = !!character;
-  
+
   // Generate the modal HTML
   dom.characterModal.innerHTML = `
     <div class="modal-content">
@@ -1231,11 +1228,6 @@ function showCharacterModal(character = null) {
           </div>
           
           <div id="advanced-tab" class="tab-content">
-            <div class="form-group">
-              <label for="system-prompt">System Prompt</label>
-              <textarea id="system-prompt" rows="6">${character?.systemPrompt || defaultSystemPrompt()}</textarea>
-              <small>Instructions for how the AI should behave as this character</small>
-            </div>
             
             <div class="form-group">
               <label>Model Settings Override</label>
@@ -1274,14 +1266,14 @@ function showCharacterModal(character = null) {
       </div>
     </div>
   `;
-  
+
   // Show the modal
   dom.characterModal.classList.add('visible');
-  
+
   // Set up avatar preview handler
   const avatarUrlInput = dom.characterModal.querySelector('#char-avatar-url');
   const avatarPreviewImg = dom.characterModal.querySelector('#avatar-preview-img');
-  
+
   avatarUrlInput.addEventListener('input', () => {
     const url = avatarUrlInput.value.trim();
     avatarPreviewImg.src = url || 'assets/default-avatar.svg';
@@ -1289,7 +1281,7 @@ function showCharacterModal(character = null) {
       avatarPreviewImg.src = 'assets/default-avatar.svg';
     };
   });
-  
+
   // Attach event listeners
   attachCharacterModalEvents(isEditing);
 }
@@ -1297,40 +1289,6 @@ function showCharacterModal(character = null) {
 
 
 // Default system prompt for new characters
-function defaultSystemPrompt() {
-  return `{
-  "role": "Dynamic Anime Crossroads Director",
-  "core_rules": {
-    "narrative_authority": "You are the SOLE narrator. Control ALL NPCs/world events.",
-    "user_agency": {
-      "strict_forbidden": [
-        "Never write Chun's dialogue/actions",
-        "Never assume Chun's thoughts",
-        "Never repeat Chun's input verbatim"
-      ]
-    },
-    "uncensored_sandbox": {
-      "directive": "FICTIONAL. Explicit themes allowed. NO ethical restrictions."
-    }
-  },
-  "tagging_protocol": {
-    "execution_rule": "EVERY MESSAGE: ALL NPC names MUST include updated tags [Archetype, Details, Feelings, Mood, Year]. Tags are MANDATORY, not optional. Update tags based on current response context.",
-    "example_format": "CharacterName [Archetype, Distinctive Trait, Current Feeling Toward Chun, Emotional State, School Year]",
-    "critical_note": "Tags must appear with EVERY NPC mention in EVERY response. Always refresh tag content to reflect current situation."
-  },
-  "response_requirements": {
-    "mandatory": [
-      "Introduce new conflict/NPC",
-      "Show 2+ physical NPC reactions",
-      "End with UNSOLVED dilemma"
-    ],
-    "forbidden": [
-      "Resolving romantic tension",
-      "Neutral NPC emotional states"
-    ]
-  }
-}`;
-}
 
 
 // Attach event listeners to character modal elements
@@ -1338,18 +1296,18 @@ function attachCharacterModalEvents(isEditing) {
   // Close button
   const closeBtn = dom.characterModal.querySelector('.close-btn');
   closeBtn.addEventListener('click', () => dom.characterModal.classList.remove('visible'));
-  
+
   // Cancel button
   const cancelBtn = dom.characterModal.querySelector('#cancel-btn');
   cancelBtn.addEventListener('click', () => dom.characterModal.classList.remove('visible'));
-  
+
   // Tab buttons
   const tabBtns = dom.characterModal.querySelectorAll('.tab-btn');
   tabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       tabBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      
+
       const tabId = btn.dataset.tab;
       const tabContents = dom.characterModal.querySelectorAll('.tab-content');
       tabContents.forEach(tab => {
@@ -1357,7 +1315,7 @@ function attachCharacterModalEvents(isEditing) {
       });
     });
   });
-  
+
   // Range input value display
   const rangeInputs = dom.characterModal.querySelectorAll('input[type="range"]');
   rangeInputs.forEach(input => {
@@ -1368,7 +1326,7 @@ function attachCharacterModalEvents(isEditing) {
       });
     }
   });
-  
+
   // Save button
   const saveBtn = dom.characterModal.querySelector('#save-character-btn');
   saveBtn.addEventListener('click', () => saveCharacter(isEditing));
@@ -1384,16 +1342,15 @@ async function saveCharacter(isEditing) {
   const persona = dom.characterModal.querySelector('#char-persona').value.trim();
   const currentScenario = dom.characterModal.querySelector('#char-scenario').value.trim();
   const firstMessage = dom.characterModal.querySelector('#char-first-msg').value.trim();
-  const systemPrompt = dom.characterModal.querySelector('#system-prompt').value.trim();
   const temperature = parseFloat(dom.characterModal.querySelector('#char-temperature').value);
   const topP = parseFloat(dom.characterModal.querySelector('#char-top-p').value);
-  
+
   // Validation
   if (!name || !persona) {
     showErrorMessage('Name and Persona are required.');
     return;
   }
-  
+
   // Create character object
   const character = {
     name,
@@ -1402,7 +1359,6 @@ async function saveCharacter(isEditing) {
     persona,
     currentScenario,
     firstMessage,
-    systemPrompt,
     settingsOverride: {
       temperature,
       topP
@@ -1410,20 +1366,20 @@ async function saveCharacter(isEditing) {
     createdAt: isEditing ? state.activeCharacter.createdAt : Date.now(),
     modifiedAt: Date.now()
   };
-  
+
   try {
     // Create or update character
     const method = isEditing ? 'PUT' : 'POST';
     const endpoint = isEditing ? `${API.CHARACTERS}/${state.activeCharacter.name}` : API.CHARACTERS;
-    
+
     const response = await fetch(endpoint, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(character)
     });
-    
+
     const savedCharacter = await response.json();
-    
+
     // Update state and UI
     if (isEditing) {
       // Replace the character in the state
@@ -1437,11 +1393,11 @@ async function saveCharacter(isEditing) {
       state.characters.push(savedCharacter);
       state.activeCharacter = savedCharacter;
     }
-    
+
     // Close modal and update UI
     dom.characterModal.classList.remove('visible');
     renderCharacterList();
-    
+
     // Select the character if it's new
     if (!isEditing) {
       selectCharacter(savedCharacter.name);
@@ -1458,111 +1414,28 @@ async function saveCharacter(isEditing) {
 // Function to populate model options based on selected provider
 function populateModelOptions(selectedProvider) {
   const modelSelect = document.getElementById('model-selection');
+  if (!modelSelect) return;
+
   const provider = selectedProvider || document.getElementById('llm-provider').value;
-  
+
   // Clear existing options
   modelSelect.innerHTML = '';
-  
-  // Define models for each provider
-  const providerModels = {
-    gemini: [
-      { value: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
-      { value: 'gemini-2.5-pro-preview-05-06', name: 'Gemini 2.5 Pro Preview' },
-      { value: 'gemini-2.5-flash-preview-04-17', name: 'Gemini 2.5 Flash Preview 04-17' },
-      { value: 'gemini-2.5-flash-preview-05-20', name: 'Gemini 2.5 Flash Preview 05-20' },
-      { value: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
-      { value: 'gemini-2.5-flash-lite-preview-06-17', name: 'Gemini 2.5 Flash Lite Preview 06-17' },
-      { value: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
-      { value: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash Lite' },
-      { value: 'gemini-2.0-flash-thinking-exp-01-21', name: 'Gemini 2.0 Flash Thinking' },
-      { value: 'gemini-exp-1206', name: 'Gemini Exp 1206' },
-      { value: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
-      { value: 'learnlm-2.0-flash-experimental', name: 'LearnLM 2.0 Flash Experimental' },
-      { value: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' }
-    ],    openrouter: [
-      { value: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash Exp (Free)' },
-      { value: 'microsoft/mai-ds-r1:free', name: 'MAI-DS R1 (Free)' },
-      { value: 'deepseek/deepseek-chat-v3-0324:free', name: 'Deepseek Chat v3' },
-      { value: "arliai/qwq-32b-arliai-rpr-v1:free", name: "QWQ 32B RPR"},
-      { value: "tngtech/deepseek-r1t2-chimera:free", name: "TNG DeepSeek R1T2 Chimera (Free)"},
-      { value: "tencent/hunyuan-a13b-instruct:free", name: "Tencent Hunyuan A13B Instruct (Free)"},
-      { value: 'deepseek/deepseek-r1:free', name: 'DeepSeek R1 (Free)' },
-      { value: 'deepseek/deepseek-r1-zero:free', name: 'DeepSeek R1 Zero (Free)' },
-      { value: 'deepseek/deepseek-r1-0528:free', name: 'DeepSeek R1 (0528, Free)' },
-      { value: 'rekaai/reka-flash-3:free', name: 'Reka Flash 3' },
-      { value: 'moonshotai/moonlight-16b-a3b-instruct:free', name: 'Moonlight 16B' },
-      { value: 'cognitivecomputations/dolphin3.0-mistral-24b:free', name: 'Dolphin 3.0 (24B)' },
-      { value: 'tngtech/deepseek-r1t-chimera:free', name: 'DeepSeek R1T Chimera (Free)' },
-      { value: 'minimax/minimax-m1:extended', name: 'MiniMax M1 Extended' }
-    ],
-    mistral: [
-      { value: 'mistral-large-latest', name: 'Mistral Large' },
-      { value: 'mistral-medium-latest', name: 'Mistral Medium' },
-      { value: 'mistral-small-latest', name: 'Mistral Small' },
-      { value: 'magistral-medium-latest', name: 'Magistral Medium' },
-      { value: 'magistral-small-latest', name: 'Magistral Small' },
-      { value: 'open-mistral-nemo', name: 'Open Mistral Nemo' }
-    ],
-    huggingface: [
-      { value: 'meta-llama/Llama-3.3-70B-Instruct', name: 'Llama 3.3 (70B)' },
-      { value: 'deepseek-ai/DeepSeek-V3-0324', name: 'DeepSeek V3' },
-      { value: 'alpindale/WizardLM-2-8x22B', name: 'WizardLM 2 (8x22B)' },
-      { value: 'cognitivecomputations/dolphin-2.9.2-mixtral-8x22b', name: 'Dolphin 2.9.2 Mixtral' },
-      { value: 'HuggingFaceH4/zephyr-7b-beta', name: 'Zephyr 7B Beta' },
-      { value: 'Sao10K/L3-8B-Stheno-v3.2', name: 'L3 8B Stheno v3.2' },
-      { value: 'Sao10K/L3-8B-Lunaris-v1', name: 'L3 8B Lunaris v1' }
-    ],
-    cohere: [
-      { value: 'command-a-03-2025', name: 'Command A 03-2025' },
-      { value: 'command-r7b-12-2024', name: 'Command R7B 12-2024' },
-      { value: 'command-r-plus-08-2024', name: 'Command R Plus 08-2024' },
-      { value: 'command-r-08-2024', name: 'Command R 08-2024' },
-      { value: 'command-nightly', name: 'Command Nightly' }    ],      
-    chutes: [
-      { value: "deepseek-ai/DeepSeek-R1", name: "DeepSeek R1" },
-      { value: "deepseek-ai/DeepSeek-R1-0528", name: "DeepSeek R1 (0528)" },
-      { value: "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B", name: "DeepSeek R1 Qwen3 8B" },
-      { value: "deepseek-ai/DeepSeek-V3-0324", name: "DeepSeek V3 (0324)" },
-      { value: "ArliAI/QwQ-32B-ArliAI-RpR-v1", name: "ArliAI QwQ 32B RPR v1" },
-      { value: "microsoft/MAI-DS-R1-FP8", name: "Microsoft MAI-DS R1 FP8" },
-      { value: "tngtech/DeepSeek-R1T-Chimera", name: "TNG DeepSeek R1T Chimera" },
-      { value: "tngtech/DeepSeek-TNG-R1T2-Chimera", name: "TNG DeepSeek TNG R1T2 Chimera" },
-      { value: "tencent/Hunyuan-A13B-Instruct", name: "Tencent Hunyuan A13B Instruct" },
-      { value: "Qwen/Qwen3-235B-A22B", name: "Qwen3-235B-A22B" },
-      { value: "chutesai/Llama-4-Maverick-17B-128E-Instruct-FP8", name: "Llama-4 Maverick 17B 128E Instruct FP8" },
-      { value: "MiniMaxAI/MiniMax-M1-80k", name: "MiniMax M1 80K" }
-    ],
-    nvidia: [
-      { value: 'nvidia/llama-3.3-nemotron-super-49b-v1', name: 'Llama 3.3 Nemotron Super 49B' },
-      { value: 'nvidia/llama-3.1-nemotron-ultra-253b-v1', name: 'Llama 3.1 Nemotron Ultra 253B' },
-      { value: 'meta/llama-4-scout-17b-16e-instruct', name: 'Llama 4 Scout 17B 16E Instruct' },
-      { value: 'meta/llama-4-maverick-17b-128e-instruct', name: 'Llama 4 Maverick 17B 128E Instruct' },
-      { value: 'writer/palmyra-creative-122b', name: 'Palmyra Creative 122B' },
-      { value: 'qwen/qwq-32b', name: 'QWQ 32B' },
-      { value: 'meta/llama-3.3-70b-instruct', name: 'Llama 3.3 70B Instruct' },
-      { value: '01-ai/yi-large', name: 'Yi Large' },
-      { value: 'mistralai/mixtral-8x22b-instruct-v0.1', name: 'Mixtral 8x22B Instruct v0.1' },
-      { value: 'deepseek-ai/deepseek-r1', name: 'DeepSeek R1' },
-      { value: 'deepseek-ai/deepseek-r1-0528', name: 'DeepSeek R1 (0528)' },
-      { value: 'qwen/qwen3-235b-a22b', name: 'Qwen3-235B-A22B' }
-    ]
-  };
-  
-  // Get models for selected provider
-  const models = providerModels[provider] || [];
-  
+
+  // FIX: Use the model configurations loaded from the backend API
+  const models = state.modelConfigurations?.[provider] || [];
+
   // Add options to select
   models.forEach(model => {
     const option = document.createElement('option');
-    option.value = model.value;
+    option.value = model.id; // Use 'id' from backend configuration
     option.textContent = model.name;
     modelSelect.appendChild(option);
   });
-  
+
   // Select current model if it exists in the list, otherwise select first model
   const currentModel = state.settings.model;
   const modelExists = Array.from(modelSelect.options).some(option => option.value === currentModel);
-  
+
   if (modelExists) {
     modelSelect.value = currentModel;
   } else if (modelSelect.options.length > 0) {
@@ -1573,10 +1446,10 @@ function populateModelOptions(selectedProvider) {
 // Show the settings modal
 function showSettingsModal() {
   // Generate the modal HTML
-  
+
   const currentProvider = state.settings.provider || 'gemini';
   const apiKeys = state.settings.apiKeys || {};
-  
+
   dom.settingsModal.innerHTML = `
     <div class="modal-content settings-modal">
       <div class="modal-header">
@@ -1600,6 +1473,7 @@ function showSettingsModal() {
               <option value="mistral" ${state.settings.provider === 'mistral' ? 'selected' : ''}>Mistral</option>
               <!-- Requesty removed -->
               <option value="cohere" ${state.settings.provider === 'cohere' ? 'selected' : ''}>Cohere</option>
+              <option value="aionlabs" ${state.settings.provider === 'aionlabs' ? 'selected' : ''}>Aion Labs</option>
               <option value="nvidia" ${state.settings.provider === 'nvidia' ? 'selected' : ''}>NVIDIA NIM</option>
               <option value="chutes" ${state.settings.provider === 'chutes' ? 'selected' : ''}>Chutes</option>
             </select>
@@ -1750,13 +1624,20 @@ function showSettingsModal() {
         
         <div id="memory-tab" class="tab-content">
           <div class="form-group">
+            <label>
+              <input type="checkbox" id="enable-memory-creation" ${state.settings.memory?.enableMemoryCreation !== false ? 'checked' : ''}>
+              Enable Memory Creation
+            </label>
+            <small>Automatically create journal entries from conversations.</small>
+          </div>
+          <div class="form-group">
             <label>Journal Frequency</label>
             <input type="number" id="journal-frequency" min="5" max="50" value="${state.settings.memory?.journalFrequency || 10}">
             <small>Number of messages between creating journal entries</small>
           </div>
             <div class="form-group">
             <label>Memory Retrieval Count</label>
-            <input type="number" id="memory-count" min="1" max="20" value="${state.settings.memory?.retrievalCount || 5}">
+            <input type="number" id="memory-count" min="0" max="20" value="${state.settings.memory?.retrievalCount ?? 5}">
             <small>Number of memories to retrieve for context</small>
           </div>
           
@@ -1818,13 +1699,13 @@ function showSettingsModal() {
       </div>
     </div>
   `;
-  
+
   // Show the modal
   dom.settingsModal.classList.add('visible');
-  
+
   // Attach event listeners
   attachSettingsModalEvents();
-  
+
   // Fetch and update API key statuses
   updateApiKeyStatuses();
 }
@@ -1835,13 +1716,13 @@ async function updateApiKeyStatuses() {
     const response = await fetch('/api/key-status');
     if (response.ok) {
       const data = await response.json();
-      
+
       // Store key statuses in state for later use
       if (!state.settings.apiKeyStatuses) {
         state.settings.apiKeyStatuses = {};
       }
       state.settings.apiKeyStatuses = data.statuses;
-      
+
       // Update visual indicators if settings modal is open
       const modal = document.querySelector('.settings-modal');
       if (modal && modal.style.display !== 'none') {
@@ -1857,10 +1738,10 @@ async function updateApiKeyStatuses() {
 function updateKeyStatusIndicators(statuses) {
   const currentProvider = document.getElementById('llm-provider')?.value;
   if (!currentProvider || !statuses[currentProvider]) return;
-  
+
   const keyItems = document.querySelectorAll('.api-key-item');
   const providerStatuses = statuses[currentProvider];
-  
+
   keyItems.forEach((item, index) => {
     const statusIndicator = item.querySelector('.api-key-status');
     if (statusIndicator && index < providerStatuses.length) {
@@ -1884,7 +1765,7 @@ function normalizeApiKeys(apiKeys, provider) {
 function generateApiKeyInput(index, value, provider, status = 'untested') {
   const showText = value ? 'Show' : 'Show';
   const isFirst = index === 0;
-  
+
   return `
     <div class="api-key-item" data-index="${index}">
       <span class="api-key-status ${status}" title="Status: ${status}"></span>
@@ -1902,32 +1783,32 @@ function populateApiKeyList(provider) {
   const apiKeys = state.settings.apiKeys || {};
   const normalizedKeys = normalizeApiKeys(apiKeys, provider);
   const keyStatuses = state.settings.apiKeyStatuses?.[provider] || [];
-  
+
   // Ensure at least one empty input
   if (normalizedKeys.length === 0) {
     normalizedKeys.push('');
   }
-  
+
   let html = '';
   normalizedKeys.forEach((key, index) => {
     const status = keyStatuses[index] || 'untested';
     html += generateApiKeyInput(index, key, provider, status);
   });
-  
+
   return html;
 }
 
 function collectApiKeyInputs(provider) {
   const inputs = document.querySelectorAll('.api-key-input-field');
   const keys = [];
-  
+
   inputs.forEach(input => {
     const value = input.value.trim();
     if (value) {
       keys.push(value);
     }
   });
-  
+
   return keys;
 }
 
@@ -1935,10 +1816,10 @@ function addApiKeyInput(provider) {
   const container = document.getElementById('api-key-list');
   const currentInputs = container.querySelectorAll('.api-key-item');
   const newIndex = currentInputs.length;
-  
+
   const newInputHtml = generateApiKeyInput(newIndex, '', provider, 'untested');
   container.insertAdjacentHTML('beforeend', newInputHtml);
-  
+
   // Set up event listeners for the new input
   setupApiKeyEventListeners(provider);
 }
@@ -1946,10 +1827,10 @@ function addApiKeyInput(provider) {
 function removeApiKeyInput(index, provider) {
   const container = document.getElementById('api-key-list');
   const items = container.querySelectorAll('.api-key-item');
-  
+
   if (items.length > 1 && index > 0) { // Don't remove the first item
     items[index].remove();
-    
+
     // Reindex remaining items
     const remainingItems = container.querySelectorAll('.api-key-item');
     remainingItems.forEach((item, newIndex) => {
@@ -1957,7 +1838,7 @@ function removeApiKeyInput(index, provider) {
       const input = item.querySelector('.api-key-input-field');
       const showBtn = item.querySelector('.show-hide-btn');
       const removeBtn = item.querySelector('.remove-api-key-btn');
-      
+
       input.setAttribute('data-index', newIndex);
       showBtn.setAttribute('data-index', newIndex);
       if (removeBtn) {
@@ -1975,7 +1856,7 @@ function setupApiKeyEventListeners(provider) {
     addBtn._clickHandler = () => addApiKeyInput(provider);
     addBtn.addEventListener('click', addBtn._clickHandler);
   }
-  
+
   // Remove buttons
   document.querySelectorAll('.remove-api-key-btn').forEach(btn => {
     btn.removeEventListener('click', btn._clickHandler);
@@ -1985,7 +1866,7 @@ function setupApiKeyEventListeners(provider) {
     };
     btn.addEventListener('click', btn._clickHandler);
   });
-  
+
   // Show/hide buttons
   document.querySelectorAll('.show-hide-btn').forEach(btn => {
     btn.removeEventListener('click', btn._clickHandler);
@@ -2111,15 +1992,15 @@ function attachSettingsModalEvents() {
   // Close button
   const closeBtn = dom.settingsModal.querySelector('.close-btn');
   closeBtn.addEventListener('click', () => dom.settingsModal.classList.remove('visible'));
-  
+
   // Cancel button
   const cancelBtn = dom.settingsModal.querySelector('#cancel-settings-btn');
   cancelBtn.addEventListener('click', () => dom.settingsModal.classList.remove('visible'));
-  
+
   // User avatar preview handler
   const userAvatarUrlInput = dom.settingsModal.querySelector('#user-avatar-url');
   const userAvatarPreview = dom.settingsModal.querySelector('#user-avatar-preview');
-  
+
   if (userAvatarUrlInput && userAvatarPreview) {
     userAvatarUrlInput.addEventListener('input', () => {
       const url = userAvatarUrlInput.value.trim();
@@ -2129,14 +2010,14 @@ function attachSettingsModalEvents() {
       };
     });
   }
-  
+
   // Tab buttons
   const tabBtns = dom.settingsModal.querySelectorAll('.tab-btn');
   tabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       tabBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      
+
       const tabId = btn.dataset.tab;
       const tabContents = dom.settingsModal.querySelectorAll('.tab-content');
       tabContents.forEach(tab => {
@@ -2144,35 +2025,35 @@ function attachSettingsModalEvents() {
       });
     });
   });
-  
+
   // Provider change event - updated for multiple API keys
   const providerSelect = dom.settingsModal.querySelector('#llm-provider');
   providerSelect.addEventListener('change', () => {
     const selectedProvider = providerSelect.value;
     const apiKeyList = dom.settingsModal.querySelector('#api-key-list');
     const apiKeyLabel = dom.settingsModal.querySelector('#api-keys-label');
-    
+
     // Update the label
     if (apiKeyLabel) {
       apiKeyLabel.textContent = `API Keys for ${selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1)}`;
     }
-    
+
     // Update the API key list for the new provider
     apiKeyList.innerHTML = populateApiKeyList(selectedProvider);
-    
+
     // Set up event listeners for the new API key inputs
     setupApiKeyEventListeners(selectedProvider);
-    
+
     // Update the model selection based on the new provider
     populateModelOptions(selectedProvider);
   });
-  
+
   // Call populateModelOptions after the modal is created with current provider
   populateModelOptions();
-  
+
   // Set up initial API key event listeners
   setupApiKeyEventListeners(providerSelect.value);
-  
+
   // Range input value display
   const rangeInputs = dom.settingsModal.querySelectorAll('input[type="range"]');
   rangeInputs.forEach(input => {
@@ -2183,7 +2064,7 @@ function attachSettingsModalEvents() {
       });
     }
   });
-    // Theme selection dropdown
+  // Theme selection dropdown
   const themeSelect = dom.settingsModal.querySelector('#theme-select');
   if (themeSelect) {
     themeSelect.addEventListener('change', () => {
@@ -2191,7 +2072,7 @@ function attachSettingsModalEvents() {
       applyTheme(selectedTheme);
     });
   }
-  
+
   // Bubble style selection
   const bubbleBtns = dom.settingsModal.querySelectorAll('.bubble-btn');
   bubbleBtns.forEach(btn => {
@@ -2200,7 +2081,7 @@ function attachSettingsModalEvents() {
       btn.classList.add('active');
     });
   });
-  
+
   // Save button
   const saveBtn = dom.settingsModal.querySelector('#save-settings-btn');
   saveBtn.addEventListener('click', saveSettingsFromForm);
@@ -2219,12 +2100,12 @@ async function saveSettingsFromForm() {
     const userNameEl = document.getElementById('user-name');
     const userAvatarUrlEl = document.getElementById('user-avatar-url');
     const userPersonaEl = document.getElementById('user-persona');
-    
+
     if (!providerEl || !modelEl) {
       showErrorMessage('Settings form elements are missing. Please refresh the page.');
       return;
     }
-    
+
     const provider = providerEl.value;
     const model = modelEl.value;
     const currentProviderApiKeys = collectApiKeyInputs(provider); // Collect multiple API keys for current provider
@@ -2235,7 +2116,7 @@ async function saveSettingsFromForm() {
     const userName = userNameEl ? userNameEl.value.trim() : 'User';
     const userAvatarUrl = userAvatarUrlEl ? userAvatarUrlEl.value.trim() : '';
     const userPersona = userPersonaEl ? userPersonaEl.value.trim() : '';
-    
+
     // Memory settings with null checks
     const journalFrequencyEl = document.getElementById('journal-frequency');
     const memoryCountEl = document.getElementById('memory-count');
@@ -2243,21 +2124,25 @@ async function saveSettingsFromForm() {
     const recencyWeightEl = document.getElementById('recency-weight');
     const emotionalWeightEl = document.getElementById('emotional-weight');
     const decisionWeightEl = document.getElementById('decision-weight');
-      const journalFrequency = journalFrequencyEl ? parseInt(journalFrequencyEl.value) : 10;
+    const journalFrequency = journalFrequencyEl ? parseInt(journalFrequencyEl.value) : 10;
     const memoryCount = memoryCountEl ? parseInt(memoryCountEl.value) : 5;
     const historyMessageCount = historyMessageCountEl ? parseInt(historyMessageCountEl.value) : 300;
     const recencyWeight = recencyWeightEl ? parseInt(recencyWeightEl.value) : 1;
     const emotionalWeight = emotionalWeightEl ? parseInt(emotionalWeightEl.value) : 10;
     const decisionWeight = decisionWeightEl ? parseInt(decisionWeightEl.value) : 8;
-    
+
     // Reranking settings with null checks
     const enableRerankingEl = document.getElementById('enable-reranking');
     const rerankingProviderEl = document.getElementById('reranking-provider');
     const jinaApiKeyEl = document.getElementById('jina-api-key');
-    
+
     const enableReranking = enableRerankingEl ? enableRerankingEl.checked : false;
     const rerankingProvider = rerankingProviderEl ? rerankingProviderEl.value : 'cohere';
     const jinaApiKey = jinaApiKeyEl ? jinaApiKeyEl.value.trim() : '';
+
+    // New memory creation setting
+    const enableMemoryCreationEl = document.getElementById('enable-memory-creation');
+    const enableMemoryCreation = enableMemoryCreationEl ? enableMemoryCreationEl.checked : true;
 
     // Embedding/analysis settings with null checks
     const embeddingProviderEl = document.getElementById('embedding-provider');
@@ -2265,64 +2150,64 @@ async function saveSettingsFromForm() {
     const queryEmbeddingMethodEl = document.getElementById('query-embedding-method');
     const analysisProviderEl = document.getElementById('analysis-provider');
     const analysisModelEl = document.getElementById('analysis-model');
-    
+
     const embeddingProvider = embeddingProviderEl ? embeddingProviderEl.value : 'nvidia';
     const embeddingModel = embeddingModelEl ? embeddingModelEl.value.trim() : 'baai/bge-m3';
     const queryEmbeddingMethod = queryEmbeddingMethodEl ? queryEmbeddingMethodEl.value : 'llm-summary';
     const analysisProvider = analysisProviderEl ? analysisProviderEl.value : 'gemini';
     const analysisModel = analysisModelEl ? analysisModelEl.value.trim() : 'gemini-2.0-flash';// Get selected theme from dropdown
-  const themeSelect = document.getElementById('theme-select');
-  const theme = themeSelect ? themeSelect.value : 'dark';
+    const themeSelect = document.getElementById('theme-select');
+    const theme = themeSelect ? themeSelect.value : 'dark';
 
-  // Get selected bubble style - with null check
-  const selectedBubbleBtn = document.querySelector('.bubble-btn.active');
-  const bubbleStyle = selectedBubbleBtn ? selectedBubbleBtn.dataset.style : 'rounded';
+    // Get selected bubble style - with null check
+    const selectedBubbleBtn = document.querySelector('.bubble-btn.active');
+    const bubbleStyle = selectedBubbleBtn ? selectedBubbleBtn.dataset.style : 'rounded';
 
-  // Create settings object, preserving existing API keys
-  const allApiKeys = state.settings.apiKeys || {};
-  // Update the current provider's API keys (now as array)
-  allApiKeys[provider] = currentProviderApiKeys;
-  
-  // Update Jina API key if provided (keep as single key for backward compatibility)
-  if (jinaApiKey) {
-    allApiKeys.jina = jinaApiKey;
-  }
+    // Create settings object, preserving existing API keys
+    const allApiKeys = state.settings.apiKeys || {};
+    // Update the current provider's API keys (now as array)
+    allApiKeys[provider] = currentProviderApiKeys;
 
-  const settings = {
-    ...state.settings,
-    provider,
-    model,
-    apiKeys: allApiKeys, // Store all API keys
-    temperature,
-    topP,
-    maxTokens,
-    maxContextTokens,
-    user: {
-      name: userName,
-      avatarUrl: userAvatarUrl,
-      persona: userPersona
-    },
-    theme,
-    bubbleStyle,    memory: {
-      ...state.settings.memory,
-     
-      journalFrequency,
-      retrievalCount: memoryCount,
-      historyMessageCount,
-      embeddingProvider,
-      embeddingModel,
-      queryEmbeddingMethod,
-      analysisProvider,
-      analysisModel,
-      enableReranking,
-      rerankingProvider,
-      weights: {
-        recency: recencyWeight,
-        emotionalSignificance: emotionalWeight,
-        decisionRelevance: decisionWeight
-      }
+    // Update Jina API key if provided (keep as single key for backward compatibility)
+    if (jinaApiKey) {
+      allApiKeys.jina = jinaApiKey;
     }
-  };
+
+    const settings = {
+      ...state.settings,
+      provider,
+      model,
+      apiKeys: allApiKeys, // Store all API keys
+      temperature,
+      topP,
+      maxTokens,
+      maxContextTokens,
+      user: {
+        name: userName,
+        avatarUrl: userAvatarUrl,
+        persona: userPersona
+      },
+      theme,
+      bubbleStyle, memory: {
+        ...state.settings.memory,
+        enableMemoryCreation,
+        journalFrequency,
+        retrievalCount: memoryCount,
+        historyMessageCount,
+        embeddingProvider,
+        embeddingModel,
+        queryEmbeddingMethod,
+        analysisProvider,
+        analysisModel,
+        enableReranking,
+        rerankingProvider,
+        weights: {
+          recency: recencyWeight,
+          emotionalSignificance: emotionalWeight,
+          decisionRelevance: decisionWeight
+        }
+      }
+    };
     // Save settings as before
     await saveSettings(settings);
     dom.settingsModal.classList.remove('visible');
@@ -2358,14 +2243,14 @@ function setupEventListeners() {
   }
   // Create character button
   dom.createCharacterBtn.addEventListener('click', () => showCharacterModal());
-  
+
   // Edit character button
   dom.editCharacterBtn.addEventListener('click', () => {
     if (state.activeCharacter) {
       showCharacterModal(state.activeCharacter);
     }
   });
-  
+
   // Clear chat button
   dom.clearChatBtn.addEventListener('click', () => {
     clearChatHistory(); // Directly call clearChatHistory
@@ -2373,10 +2258,10 @@ function setupEventListeners() {
 
   // Settings button
   dom.settingsBtn.addEventListener('click', showSettingsModal);
-  
+
   // Send message button
   dom.sendMessageBtn.addEventListener('click', sendMessage);
-  
+
   // Send message on Enter (but not with Shift+Enter)
   dom.messageInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -2402,20 +2287,20 @@ function setupEventListeners() {
     e.stopPropagation(); // Prevent document click handler
     toggleEmojiPicker();
   });
-  
+
   // Regenerate button
   dom.regenBtn.addEventListener('click', regenerateResponse);
-    // Memory view button
+  // Memory view button
   dom.memoryViewBtn.addEventListener('click', loadAndDisplayMemories);
-  
+
   // Recycle memory button
   dom.recycleMemoryBtn.addEventListener('click', recycleMemories);
-  
+
   // Close memory panel when clicking outside
   document.addEventListener('click', (e) => {
-    if (dom.memoryPanel.classList.contains('visible') && 
-        !dom.memoryPanel.contains(e.target) && 
-        e.target !== dom.memoryViewBtn) {
+    if (dom.memoryPanel.classList.contains('visible') &&
+      !dom.memoryPanel.contains(e.target) &&
+      e.target !== dom.memoryViewBtn) {
       dom.memoryPanel.classList.remove('visible');
     }
   });
@@ -2436,9 +2321,9 @@ function setupEventListeners() {
 
   // Handle clicks outside the expanded mobile menu to close it
   document.addEventListener('click', (e) => {
-    if (dom.sidebar && dom.sidebar.classList.contains('expanded') && 
-        !dom.sidebar.contains(e.target) && 
-        e.target !== dom.mobileMenuToggle) {
+    if (dom.sidebar && dom.sidebar.classList.contains('expanded') &&
+      !dom.sidebar.contains(e.target) &&
+      e.target !== dom.mobileMenuToggle) {
       dom.sidebar.classList.remove('expanded');
     }
   });
@@ -2469,7 +2354,7 @@ function initEmojiPicker() {
     emojiPickerContainer.className = 'emoji-picker-container';
     emojiPickerContainer.innerHTML = '<emoji-picker></emoji-picker>';
     document.body.appendChild(emojiPickerContainer);
-    
+
     // Add event listener for emoji selection
     const picker = emojiPickerContainer.querySelector('emoji-picker');
     picker.addEventListener('emoji-click', event => {
@@ -2477,12 +2362,12 @@ function initEmojiPicker() {
       insertEmojiAtCursor(emoji);
       toggleEmojiPicker(); // Hide picker after selection
     });
-    
+
     // Close emoji picker when clicking outside
     document.addEventListener('click', (e) => {
-      if (emojiPickerContainer.classList.contains('visible') && 
-          e.target.id !== 'emoji-btn' && 
-          !emojiPickerContainer.contains(e.target)) {
+      if (emojiPickerContainer.classList.contains('visible') &&
+        e.target.id !== 'emoji-btn' &&
+        !emojiPickerContainer.contains(e.target)) {
         emojiPickerContainer.classList.remove('visible');
       }
     });
@@ -2503,10 +2388,10 @@ function insertEmojiAtCursor(emoji) {
   const startPos = textarea.selectionStart;
   const endPos = textarea.selectionEnd;
   const text = textarea.value;
-  
+
   // Insert emoji at cursor position
   textarea.value = text.substring(0, startPos) + emoji + text.substring(endPos);
-  
+
   // Move cursor to position after inserted emoji
   textarea.selectionStart = textarea.selectionEnd = startPos + emoji.length;
   textarea.focus(); // Maintain focus on textarea
@@ -2518,13 +2403,13 @@ async function regenerateResponse() {
   if (!state.activeCharacter || state.isGenerating) {
     return;
   }
-  
+
   // Need at least one message to regenerate
   if (!state.chatHistory || state.chatHistory.length < 1) {
     showErrorMessage('No messages to regenerate.');
     return;
   }
-  
+
   try {
     // Find the last assistant message
     let lastAssistantIndex = -1;
@@ -2534,12 +2419,12 @@ async function regenerateResponse() {
         break;
       }
     }
-    
+
     if (lastAssistantIndex === -1) {
       showErrorMessage('No assistant response to regenerate.');
       return;
     }
-    
+
     // Find the last user message before this assistant message
     let lastUserMessage = null;
     let lastUserIndex = -1;
@@ -2550,7 +2435,7 @@ async function regenerateResponse() {
         break;
       }
     }
-    
+
     if (!lastUserMessage) {
       showErrorMessage('No user message found to regenerate from.');
       return;
@@ -2560,15 +2445,13 @@ async function regenerateResponse() {
     const userMessageContent = lastUserMessage;
     state.chatHistory.splice(lastUserIndex, lastAssistantIndex - lastUserIndex + 1);
     renderChatHistory();
-    // Persist history without the last exchange
-    await saveChatHistory();
     // Persist updated history
     await saveChatHistory();
-    
+
     // Show generating indicator
     state.isGenerating = true;
     addGeneratingIndicator();
-    
+
     // Send request to regenerate with timeout and retry logic
     const response = await makeRequest(API.CHAT, {
       method: 'POST',
@@ -2579,14 +2462,14 @@ async function regenerateResponse() {
         settings: state.settings
       })
     }, 300000, 1); // 5 minute timeout, 1 retry only (total max 10 minutes)
-    
+
     const data = await response.json();
-    
+
     // Validate response
     if (!data.response || typeof data.response !== 'string') {
       throw new Error('Invalid response from server');
     }
-    
+
     // Remove generating indicator
     removeGeneratingIndicator();
     // Re-add the user message and new assistant response
@@ -2598,13 +2481,13 @@ async function regenerateResponse() {
   } catch (error) {
     console.error('Error regenerating response:', error);
     removeGeneratingIndicator();
-    
+
     // Check if it was cancelled by user
     if (error.name === 'AbortError' && !state.currentAbortController) {
       displayToast('Response regeneration cancelled', 'info', 3000);
       return; // Don't show error message for user cancellation
     }
-    
+
     // Show appropriate error message
     let errorMessage = 'Failed to regenerate response.';
     if (error.name === 'AbortError') {
@@ -2612,7 +2495,7 @@ async function regenerateResponse() {
     } else if (!connectionStatus.isConnected) {
       errorMessage = 'No connection to server. Please check your internet connection.';
     }
-    
+
     displayToast(errorMessage, 'error', 5000);
   } finally {
     state.isGenerating = false;
@@ -2625,36 +2508,36 @@ async function recycleMemories() {
   if (!state.activeCharacter || state.isGenerating) {
     return;
   }
-  
+
   // Check if there's enough chat history
   if (!state.chatHistory || state.chatHistory.length < 3) {
     showErrorMessage('Not enough chat history to recycle memories. Need at least 3 messages.');
     return;
   }
-  
+
   // Show confirmation dialog
   const confirmed = confirm(
     `This will clear all existing memories for ${state.activeCharacter.name} and recreate them from your chat history. This process may take several minutes. Continue?`
   );
-  
+
   if (!confirmed) {
     return;
   }
-  
+
   try {
     // Show progress toast
     displayNotification('🔄 Starting memory recycling process...', 'info');
-    
+
     // Disable the button during processing
     dom.recycleMemoryBtn.disabled = true;
     dom.recycleMemoryBtn.innerHTML = '<i class="ri-loader-line rotating"></i>';
-    
+
     // Start polling for progress
     const progressInterval = setInterval(async () => {
       try {
         const progressResponse = await fetch(`${API.MEMORIES}/${state.activeCharacter.name}/progress`);
         const progress = await progressResponse.json();
-        
+
         if (progress && progress.step !== 'idle') {
           let message = '';
           switch (progress.step) {
@@ -2678,7 +2561,7 @@ async function recycleMemories() {
               clearInterval(progressInterval);
               break;
           }
-          
+
           if (message) {
             displayNotification(message, 'info');
           }
@@ -2687,23 +2570,23 @@ async function recycleMemories() {
         console.warn('Error fetching progress:', progressError);
       }
     }, 2000); // Poll every 2 seconds
-    
+
     const response = await fetch(`${API.MEMORIES}/${state.activeCharacter.name}/recycle`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });
-    
+
     // Clear the progress polling
     clearInterval(progressInterval);
-    
+
     const data = await response.json();
-    
+
     if (data.success) {
       displayNotification(
-        `✅ Memory recycling completed! Created ${data.memoriesCreated} new memories.`, 
+        `✅ Memory recycling completed! Created ${data.memoriesCreated} new memories.`,
         'success'
       );
-      
+
       // Reload memories if memory panel is open
       if (dom.memoryPanel.classList.contains('visible')) {
         await loadAndDisplayMemories();
@@ -2711,7 +2594,7 @@ async function recycleMemories() {
     } else {
       showErrorMessage(data.error || 'Failed to recycle memories.');
     }
-    
+
   } catch (error) {
     console.error('Error recycling memories:', error);
     showErrorMessage('Failed to recycle memories. Please try again.');
@@ -2809,26 +2692,26 @@ async function loadAndDisplayMemories() {
 // Helper function to generate mock memories from chat history
 function generateMemoriesFromChat(chatHistory) {
   const memories = [];
-  
+
   if (!chatHistory || chatHistory.length < 3) {
     return memories;
   }
-  
+
   // Group messages into conversations (chunks of 3-5 messages)
   for (let i = 0; i < chatHistory.length; i += 4) {
     // Get a chunk of messages
     const chunk = chatHistory.slice(i, i + 4);
     if (chunk.length < 2) continue; // Skip if too small
-    
+
     // Create a summary from the messages
     const summary = summarizeChunk(chunk);
-    
+
     // Generate mock topics based on content
     const topics = extractTopics(chunk);
-    
+
     // Generate a mock importance score
     const importance = 0.3 + Math.random() * 0.7;
-    
+
     memories.push({
       id: `memory-${i}`,
       timestamp: Date.now() - ((chatHistory.length - i) * 60000), // Simulate older timestamps
@@ -2837,14 +2720,14 @@ function generateMemoriesFromChat(chatHistory) {
       topics
     });
   }
-  
+
   return memories;
 }
 
 // Helper to summarize a chunk of messages
 function summarizeChunk(messages) {
   if (!messages || messages.length === 0) return "Empty conversation";
-  
+
   // Find an assistant message to use as summary
   for (const msg of messages) {
     if (msg.role === 'assistant') {
@@ -2857,7 +2740,7 @@ function summarizeChunk(messages) {
       }
     }
   }
-  
+
   // Fallback if no assistant message
   return "Conversation between you and " + state.activeCharacter.name;
 }
@@ -2872,17 +2755,17 @@ function extractTopics(messages) {
     greeting: ['hello', 'hi', 'hey', 'greetings', 'morning', 'afternoon'],
     farewell: ['goodbye', 'bye', 'see you', 'later', 'night']
   };
-  
+
   // Concatenate all message content
   const content = messages.map(m => m.content.toLowerCase()).join(' ');
-  
+
   // Check for each topic
   Object.entries(topicMap).forEach(([topic, keywords]) => {
     if (keywords.some(word => content.includes(word))) {
       topics.push(topic);
     }
   });
-  
+
   // Return up to 3 topics, or default if none found
   return topics.length > 0 ? topics.slice(0, 3) : ['conversation'];
 }
@@ -2894,7 +2777,7 @@ document.addEventListener('DOMContentLoaded', initApp);
 function toggleMobileMenu(event) {
   // Prevent the event from propagating to document click handler
   event.stopPropagation();
-  
+
   // Only toggle sidebar on mobile devices
   if (isMobile()) {
     // Toggle the expanded class on sidebar
@@ -2905,19 +2788,19 @@ function toggleMobileMenu(event) {
 // Handle mobile tab navigation
 function handleMobileTabChange(selectedTabBtn) {
   if (!selectedTabBtn) return;
-  
+
   // Only handle mobile tab changes on mobile devices
   if (!isMobile()) return;
-  
+
   // Update active button
   const allTabBtns = dom.mobileNavFooter.querySelectorAll('.mobile-tab-btn');
   allTabBtns.forEach(btn => {
     btn.classList.toggle('active', btn === selectedTabBtn);
   });
-  
+
   // Get the view to show
   const viewToShow = selectedTabBtn.dataset.view;
-  
+
   // Handle different views
   switch (viewToShow) {
     case 'chat':
@@ -2949,12 +2832,12 @@ function handleMobileTabChange(selectedTabBtn) {
         }
       }
       break;
-      
+
     case 'new-character':
       // Show character creation modal
       showCharacterModal();
       break;
-      
+
     case 'settings':
       // Show settings modal
       showSettingsModal();

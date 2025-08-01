@@ -355,10 +355,17 @@ app.post('/api/chat', async (req, res) => {
       mergedSettings
     );
 
+    // --- ROBUSTNESS GUARD ---
+    if (typeof responseContent !== 'string') {
+      console.error(`generateResponse returned a non-string value: ${typeof responseContent}`);
+      throw new Error('The model returned an invalid response format.');
+    }
+    // --- END GUARD ---
+
     // If character was modified, mark as dirty and schedule save
     if (character.modifiedAt > (characterCache.get(characterName)?.modifiedAt || 0)) {
       // Update cache with potentially modified character
-      characterCache.set(characterName, character);
+      characterCache.set(characterName, { ...character }); // Store a copy to avoid mutation issues
       dirtyCharacters.add(characterName);
       scheduleSaveCache();
       console.log(`Character ${characterName} marked for deferred save`);
@@ -471,7 +478,7 @@ app.get('/api/memories/:characterName', async (req, res) => {
     const character = loadCharacterWithCache ? loadCharacterWithCache(charName) : loadCharacter(charName);
     const chatHistory = loadChatHistory(charName);    // Load settings
     const settings = loadSettingsFromDB();
-    const retrievalCount = settings.memory?.retrievalCount || 5;
+    const retrievalCount = settings.memory?.retrievalCount ?? 5;
     // Determine last user message for query
     const lastUser = [...chatHistory].reverse().find(m => m.role === 'user');
     const currentMessage = lastUser ? lastUser.content : '';
@@ -652,38 +659,61 @@ async function startServer() {
 // Start the server
 const server = await startServer();
 
-// Handle graceful shutdown
-process.on('SIGINT', () => {
-  console.log('Server shutting down...');
-    // Save any dirty characters
+// Graceful shutdown function
+function gracefulShutdown(signal) {
+  console.log(`Server received ${signal} signal, shutting down gracefully...`);
+  
+  // Clear any pending timers
+  if (saveCacheTimeoutId) {
+    clearTimeout(saveCacheTimeoutId);
+    saveCacheTimeoutId = null;
+  }
+  
+  // Close all SSE connections
+  console.log(`Closing ${sseClients.length} SSE connections...`);
+  sseClients.forEach(client => {
+    try {
+      client.end();
+    } catch (error) {
+      // Ignore errors when closing connections
+    }
+  });
+  sseClients.length = 0; // Clear the array
+  
+  // Save any dirty characters
   if (dirtyCharacters.size > 0) {
     console.log(`Saving ${dirtyCharacters.size} characters before shutdown...`);
     saveCache();
   }
   
-  server.close(() => {
-    console.log('Closing database connection...');
-    closeDatabase();
-    console.log('Server closed');
-    process.exit(0);
-  });
-});
-
-// Also save on SIGTERM (used by many hosting providers)
-process.on('SIGTERM', () => {
-  console.log('Server received SIGTERM signal');
-    // Save any dirty characters
-  if (dirtyCharacters.size > 0) {
-    console.log(`Saving ${dirtyCharacters.size} characters before termination...`);
-    saveCache();
-  }
+  // Close server with timeout
+  const shutdownTimeout = setTimeout(() => {
+    console.log('Forced shutdown due to timeout');
+    process.exit(1);
+  }, 5000); // 5 second timeout
   
   server.close(() => {
+    clearTimeout(shutdownTimeout);
     console.log('Closing database connection...');
     closeDatabase();
-    console.log('Server closed');
+    console.log('Server closed gracefully');
     process.exit(0);
   });
+}
+
+// Handle graceful shutdown
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+// Handle uncaught exceptions and unhandled rejections
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  gracefulShutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  gracefulShutdown('unhandledRejection');
 });
 
 export default server;
@@ -718,6 +748,7 @@ function scheduleSaveCache(delayMs = 30000) { // Default 30 seconds
   // Set new timeout
   saveCacheTimeoutId = setTimeout(() => {
     saveCache();
+    saveCacheTimeoutId = null; // Clear the reference after execution
   }, delayMs);
 }
 
@@ -742,5 +773,11 @@ function saveCache() {
   
   // Clear dirty set after saving
   dirtyCharacters.clear();
+  
+  // Clear the timeout reference if this was called directly
+  if (saveCacheTimeoutId) {
+    clearTimeout(saveCacheTimeoutId);
+    saveCacheTimeoutId = null;
+  }
 }
 

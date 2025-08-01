@@ -75,7 +75,7 @@ function migrateCharacters() {
     const insertCharStmt = db.prepare(`
       INSERT INTO characters (
         name, description, current_scenario, persona, appearance, 
-        avatar_url, first_message, system_prompt, settings_override,
+        avatar_url, first_message, settings_override, last_journal_index,
         created_at, modified_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
@@ -101,8 +101,8 @@ function migrateCharacters() {
           characterData.appearance || '',
           characterData.avatarUrl || '',
           characterData.firstMessage || '',
-          characterData.systemPrompt || '',
           JSON.stringify(characterData.settingsOverride || {}),
+          0, // Default last_journal_index to 0 for migrated characters
           characterData.createdAt || Date.now(),
           characterData.modifiedAt || Date.now()
         );

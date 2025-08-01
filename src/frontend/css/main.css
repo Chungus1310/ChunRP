@@ -27,6 +27,16 @@
   color: var(--error-color);
   opacity: 1;
 }
+.message-error-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--error-color);
+  font-size: 0.95em;
+}
+.message-error-content i {
+  font-size: 1.1em;
+}
 .message-bubble .message-error {
   margin-top: 6px;
   font-size: 0.95em;
@@ -2024,22 +2034,28 @@ select:focus-visible {
   box-shadow: var(--shadow-glow);
 }
 
-/* Toast Notification System */
-.toast-notification {
+/* Notification Area for Multiple Toasts */
+#notification-area {
   position: fixed;
   top: 60px;
   right: 20px;
   z-index: 1001;
-  max-width: 350px;
-  min-width: 250px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  width: 360px;
+  max-width: 90vw;
+}
+
+/* FIX: Use notification-area for multiple toasts */
+.toast-notification {
+  width: 100%;
+  background: var(--card-bg);
+  border-left: 4px solid var(--primary-color);
   border-radius: var(--radius-md);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  transform: translateX(100%);
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  box-shadow: var(--shadow-strong);
+  transform: translateX(120%);
   opacity: 0;
-  backdrop-filter: blur(10px);
+  transition: all 0.4s var(--ease-in-out-quart);
+  margin-bottom: var(--spacing-md);
+  overflow: hidden;
 }
 
 .toast-notification.show {
@@ -2051,55 +2067,48 @@ select:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  gap: 12px;
+  padding: var(--spacing-md);
+  gap: var(--spacing-md);
 }
 
 .toast-message {
   flex: 1;
-  font-size: 0.9rem;
-  line-height: 1.4;
+  font-size: var(--font-sm);
+  font-weight: 500;
   color: var(--text-color);
 }
 
 .toast-close {
   background: none;
   border: none;
-  color: var(--text-secondary);
+  color: var(--text-light);
   cursor: pointer;
   font-size: 1.2rem;
   line-height: 1;
   padding: 0;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
 }
 
 .toast-close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-color);
+  opacity: 1;
 }
 
 /* Toast variants */
 .toast-info {
-  border-left: 4px solid #2196f3;
+  border-left-color: var(--primary-color);
 }
 
 .toast-success {
-  border-left: 4px solid #4caf50;
-}
-
-.toast-warning {
-  border-left: 4px solid #ff9800;
+  border-left-color: var(--success-color);
 }
 
 .toast-error {
-  border-left: 4px solid #f44336;
+  border-left-color: var(--error-color);
+}
+
+.toast-warning {
+  border-left-color: #ff9800;
 }
 
 /* Connection Status Indicator */
@@ -2148,12 +2157,10 @@ select:focus-visible {
 
 /* Mobile adjustments for toast */
 @media screen and (max-width: 768px) {
-  .toast-notification {
-    top: 10px;
-    right: 10px;
-    left: 10px;
-    min-width: auto;
-    max-width: none;
+  #notification-area {
+    width: auto;
+    left: var(--spacing-md);
+    right: var(--spacing-md);
   }
   
   .connection-status {
@@ -2176,20 +2183,7 @@ select:focus-visible {
     width: 6px;
     height: 6px;
   }
-  
-  .toast-notification {
-    top: 40px;
-    right: 5px;
-    left: 5px;
-  }
-  
-  .toast-content {
-    padding: 10px 12px;
-  }
-  
-  .toast-message {
-    font-size: 0.85rem;
-  }
+}
 }
 
 /* Cancel generation button */
