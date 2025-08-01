@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Immersive Local Roleplay Chatbot",
   "main": "src/electron.js",
-  "type": "module",  "scripts": {
+  "type": "module",
+  "scripts": {
     "start": "node src/backend/server.js",
     "dev": "nodemon src/backend/server.js",
     "electron": "electron .",
@@ -17,7 +18,7 @@
   "dependencies": {
     "@google/genai": "^0.8.0",
     "@huggingface/inference": "^3.7.1",
-    "@mistralai/mistralai": "^1.5.2",
+    "@mistralai/mistralai": "^1.7.5",
     "better-sqlite3": "^11.10.0",
     "cohere-ai": "^7.17.1",
     "cors": "^2.8.5",
