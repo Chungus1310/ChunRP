@@ -1,3 +1,12 @@
+// --- MOBILE VIEWPORT HEIGHT FIX ---
+// Mobile Viewport Height Fix for older browsers that don't support dvh
+function setAppHeight() {
+  const doc = document.documentElement;
+  doc.style.setProperty('--app-height', `${window.innerHeight}px`);
+}
+window.addEventListener('resize', setAppHeight);
+setAppHeight(); // Initial call
+
 // --- CONNECTION MONITORING & TOAST SYSTEM ---
 let connectionStatus = {
   isConnected: true,

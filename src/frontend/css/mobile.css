@@ -75,10 +75,9 @@
     padding-left: 0;
     /* 2. Revert display mode as mobile doesn't use the side-by-side flex layout. */
     display: block;
-    min-height: 100vh;
-  }
-  @supports (min-height: 100dvh) {
-    .app-container { min-height: 100dvh; }
+    /* Use dvh by default, the JS will provide a fallback */
+    min-height: 100dvh;
+    min-height: var(--app-height, 100dvh); /* Fallback for JS */
   }
 
   /* --- NEW MOBILE VIEW SYSTEM --- */
@@ -87,15 +86,16 @@
     /* 3. Override 'position: absolute' from desktop styles to ensure correct flow. */
     position: relative;
     width: 100%;
-    height: auto;
-    min-height: 100vh;
-    overflow-y: auto;
+    /* Use a fixed height of the dynamic viewport */
+    height: 100dvh;
+    height: var(--app-height, 100dvh); /* JS fallback */
     border-right: none;
+    /* Configure as a vertical flex container */
     display: flex;
+    flex-direction: column;
+    /* Do not scroll the sidebar itself; the inner list will scroll */
+    overflow: hidden;
     z-index: 10;
-  }
-  @supports (min-height: 100dvh) {
-    .sidebar { min-height: 100dvh; }
   }
 
   .main-content {
@@ -110,7 +110,9 @@
   body.mobile-chat-active .main-content {
     display: flex;
     width: 100%;
-    height: 100vh;
+    /* Use dvh for the outer container */
+    height: 100dvh;
+    height: var(--app-height, 100dvh); /* Fallback for JS */
   }
 
   /* Hide desktop-only elements */
@@ -173,6 +175,11 @@
     align-items: flex-end;
     gap: var(--spacing-xs);
     padding: var(--spacing-sm);
+  }
+
+  /* Hide emoji button on mobile to save space */
+  #emoji-btn {
+    display: none;
   }
 
   .message-actions {
@@ -460,10 +467,13 @@
   }
   
   body.mobile-chat-active .main-content {
-    height: 100vh;
+    /* Use dvh for the outer container */
+    height: 100dvh;
+    height: var(--app-height, 100dvh); /* Fallback for JS */
   }
   
   body.mobile-chat-active .chat-container {
-    height: 100vh;
+    /* Let the chat container fill its parent instead of using vh */
+    height: 100%;
   }
 }
