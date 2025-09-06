@@ -18,17 +18,19 @@
   "dependencies": {
     "@google/genai": "^0.8.0",
     "@huggingface/inference": "^3.7.1",
+    "@libsql/client": "^0.10.0",
     "@mistralai/mistralai": "^1.7.5",
     "better-sqlite3": "^11.10.0",
     "cohere-ai": "^7.17.1",
     "cors": "^2.8.5",
     "electron-store": "^8.1.0",
     "express": "^4.18.2",
+    "marked": "^16.2.1",
     "node-fetch": "^3.3.2",
     "openai": "^4.100.0",
+    "sqlite-vec": "^0.1.6",
     "tiktoken": "^1.0.21",
     "uuid": "^9.0.0",
-    "vectra": "^0.2.2",
     "zod": "^3.25.56"
   },
   "devDependencies": {

@@ -53,8 +53,8 @@ function replaceUserPlaceholder(text, userName) {
   if (!text) return text;
   return text.replace(/\{\{user\}\}/gi, userName || 'User');
 }
-// Handles character memories using LanceDB
-import { ensureIndex, insertItem, queryItems } from "./vectra-wrapper.js";
+// Vector store (sqlite-vec replacement for legacy vectra)
+import { ensureIndex, insertItem, queryItems } from './vector-store-sqlite-vec.js';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
@@ -79,7 +79,7 @@ try {
 
 // Memory system now implemented through functions, not object structure
 
-// Set up Vectra index (no-op for compatibility)
+// Initialize sqlite-vec storage (same signature for compatibility)
 async function initializeVectorStorage() {
   await ensureIndex();
   return true;
@@ -91,7 +91,8 @@ async function initializeVectorStorage() {
 async function generateEmbedding(text, settings = {}) {
   // User can select embedding provider/model in settings.memory
   const provider = settings.memory?.embeddingProvider || 'gemini';
-  const embeddingModel = settings.memory?.embeddingModel || 'gemini-embedding-exp-03-07';
+  const embeddingModel = settings.memory?.embeddingModel || 'gemini-embedding-001';
+  // Removed manual desiredDim handling – let provider decide dimension; we only validate non-empty
 
 
   // Helper functions for each provider
@@ -100,24 +101,19 @@ async function generateEmbedding(text, settings = {}) {
       const { GoogleGenAI } = await import('@google/genai');
       const apiKey = settings.apiKeys?.gemini;
       if (!apiKey) throw new Error('Gemini embedding error: API key is missing.');
-      
-      // Ensure apiKey is a string (handle array case)
-      let realApiKey = apiKey;
-      if (Array.isArray(apiKey)) {
-        realApiKey = apiKey[0];
-      }
-      if (typeof realApiKey !== 'string') {
-        throw new Error('Gemini embedding API key must be a string, got: ' + typeof realApiKey);
-      }
-      
+      let realApiKey = Array.isArray(apiKey) ? apiKey[0] : apiKey;
+      if (typeof realApiKey !== 'string') throw new Error('Gemini embedding API key must be a string, got: ' + typeof realApiKey);
+
       const ai = new GoogleGenAI({ apiKey: realApiKey });
+      // Updated call signature per latest @google/genai – expects contents (string or array)
       const response = await ai.models.embedContent({
-        model: 'gemini-embedding-exp-03-07',
-        contents: text,
+        model: embeddingModel,
+        contents: text
       });
-      const embedding = response.embeddings?.values || response.embeddings;
-      if (!embedding || !Array.isArray(embedding) || (embedding.length !== 3072 && embedding.length !== 1536 && embedding.length !== 768)) {
-        throw new Error(`Gemini embedding error: Invalid or wrong dimension (${embedding?.length})`);
+      // The SDK typically returns { embedding: { values: [...] } }
+      const embedding = response?.embedding?.values || response?.embedding || response?.embeddings?.[0]?.values || response?.embeddings;
+      if (!embedding || !Array.isArray(embedding)) {
+        throw new Error('Gemini embedding error: Missing embedding array');
       }
       return embedding;
     } catch (err) {
@@ -470,12 +466,15 @@ async function createJournalEntry(messages, characterState, settings = {}) {
 
     // Generate embedding from the LLM-generated summary
     const embeddingVector = await generateEmbedding(analysisResult.summary, settings);
-    // Mistral dimension is 1024
-    const expectedDimension = 1024;
-    if (!embeddingVector || embeddingVector.length !== expectedDimension) {
-        console.error(`Failed to generate valid embedding for summary (expected ${expectedDimension}, got ${embeddingVector?.length}). Skipping journal entry.`);
-        return null;
-    }    const journalEntry = {
+    // Dynamic dimension validation
+    // Unified dimension table (includes latest Gemini flexible dims)
+    // Dimension validation simplified: accept any non-empty numeric vector
+    const embeddingProvider = settings.memory?.embeddingProvider || settings.provider || 'nvidia';
+    if (!embeddingVector || !Array.isArray(embeddingVector) || embeddingVector.length === 0) {
+      console.error(`Failed to generate valid embedding for summary. Provider=${embeddingProvider} produced empty vector.`);
+      return null;
+    }
+    const journalEntry = {
       id: uuidv4(),
       timestamp: Date.now(),
       summary: analysisResult.summary,
@@ -502,7 +501,7 @@ async function createJournalEntry(messages, characterState, settings = {}) {
   return null; // Not enough messages
 }
 
-// Store the journal entry in Vectra
+// Store the journal entry in the unified SQLite vector store
 async function storeJournalEntry(journalEntry, settings = {}) {
   try {
     const characterName = settings.character || 'default';
@@ -529,9 +528,15 @@ async function storeJournalEntry(journalEntry, settings = {}) {
 }
 
 
-// Retrieve relevant memories using Vectra with richer query embedding (LLM summary, HyDE, or plain)
+// Retrieve relevant memories via sqlite-vec (or fallback) with richer query embedding (LLM summary, HyDE, or plain)
 async function retrieveRelevantMemories(currentMessage, character, limit = 8, settings = {}, chatHistory = []) {
   try {
+    // Early exit if retrieval disabled or limit <= 0 to avoid unnecessary embedding API calls
+    const retrievalDisabled = settings?.memory?.enableMemoryRetrieval === false;
+    if (retrievalDisabled || limit <= 0) {
+      console.log(`Memory retrieval skipped (disabled=${retrievalDisabled} limit=${limit}). No embeddings generated.`);
+      return [];
+    }
     let queryText = currentMessage;
     const method = settings.memory?.queryEmbeddingMethod || 'llm-summary'; // 'llm-summary', 'hyde', 'average', 'plain'
     const analysisModel = settings.memory?.analysisModel || settings.model;
@@ -609,10 +614,11 @@ async function retrieveRelevantMemories(currentMessage, character, limit = 8, se
     // Default: embed the queryText (may be original, LLM summary, or HyDE summary)
     console.log(`Memory retrieval started for query: "${queryText.substring(0,100)}..." (character: ${character.name})`);
     const queryEmbedding = await generateEmbedding(queryText, settings);
-    const expectedDimension = 1024;
-    if (!queryEmbedding || !Array.isArray(queryEmbedding) || queryEmbedding.length !== expectedDimension) {
-      console.error(`Failed to generate a valid query embedding for character ${character.name}. Expected dimension ${expectedDimension}, but got ${queryEmbedding?.length}. Query: "${queryText}"`);
-      return [];    }
+    const provider = settings.memory?.embeddingProvider || settings.provider || 'nvidia';
+    if (!queryEmbedding || !Array.isArray(queryEmbedding) || queryEmbedding.length === 0) {
+      console.error(`Failed to generate a valid query embedding for character ${character.name}. Provider ${provider} produced empty vector. Query: "${queryText}"`);
+      return [];
+    }
     
     let memories = await _retrieveMemoriesWithEmbedding(queryEmbedding, character, limit * 2); // Get more for reranking
     
@@ -735,7 +741,7 @@ function rankMemoriesByRelevance(memories, query, characterState, settings = {})
 
 
 // Build the context prompt for the LLM
-function buildOptimizedContext(character, query, userProfile, relevantMemories, maxTokens = 6000, historyLength = 0) {
+function buildOptimizedContext(character, query, userProfile, relevantMemories, maxTokens = 6000, historyLength = 0, settings = {}) {
   // 1. Build the main part of the system prompt from character and user profile.
   let systemPromptContent = buildCharacterSystemPrompt(character, userProfile);
 
@@ -755,26 +761,34 @@ function buildOptimizedContext(character, query, userProfile, relevantMemories, 
   // Allocate up to 70% of the remaining space for memories.
   const memoryTokenBudget = Math.floor((maxTokens - systemPromptTokens - queryTokens - 100) * 0.7);
 
-  // 4. Add memories to the system prompt.
-  const memorySection = formatMemoriesForContext(relevantMemories, memoryTokenBudget > 0 ? memoryTokenBudget : 0);
-  const memoryTokenCount = estimateTokens(memorySection);
+  // 4. Add memories to the system prompt unless memory creation is disabled.
+  const memoryCreationDisabled = settings?.memory?.enableMemoryCreation === false;
+  const retrievalDisabled = settings?.memory?.enableMemoryRetrieval === false;
+  if (!memoryCreationDisabled && !retrievalDisabled) {
+    const memorySection = formatMemoriesForContext(relevantMemories, memoryTokenBudget > 0 ? memoryTokenBudget : 0);
+    const memoryTokenCount = estimateTokens(memorySection);
 
-  // Debug logging to track memory inclusion
-  console.log(`Memory context: ${relevantMemories.length} memories, ${memoryTokenCount} tokens (budget: ${memoryTokenBudget})`);
-  if (relevantMemories.length > 0) {
-    const hasMemoryContent = /\u2022|\*|\d+\s*[:\-]/.test(memorySection) || (memorySection && memorySection.trim() !== "MEMORIES: No previous memories relevant to current conversation.");
-    if (!hasMemoryContent && memoryTokenBudget > 0) {
-      console.warn("Memory retrieval succeeded but no memories were formatted, possibly due to a small token budget.");
+    // Debug logging to track memory inclusion
+    console.log(`Memory context: ${relevantMemories.length} memories, ${memoryTokenCount} tokens (budget: ${memoryTokenBudget}) (creationDisabled=${memoryCreationDisabled} retrievalDisabled=${retrievalDisabled})`);
+    if (relevantMemories.length > 0) {
+      const hasMemoryContent = /\u2022|\*|\d+\s*[:\-]/.test(memorySection) || (memorySection && memorySection.trim() !== "MEMORIES: No previous memories relevant to current conversation.");
+      if (!hasMemoryContent && memoryTokenBudget > 0) {
+        console.warn("Memory retrieval succeeded but no memories were formatted, possibly due to a small token budget.");
+      }
     }
+
+    // Append the memory section to the system prompt.
+    systemPromptContent += `\n\n${memorySection}`;
+  } else {
+    console.log(`Skipping memory section (creationDisabled=${memoryCreationDisabled} retrievalDisabled=${retrievalDisabled}).`);
   }
 
-  // Append the memory section to the system prompt.
-  systemPromptContent += `\n\n${memorySection}`;
-
-  // 5. Create the single system message object.
-  const contextMessages = [
-    { role: "system", content: systemPromptContent }
-  ];
+  // 5. Create the system message object, but only if there's content.
+  // This prevents sending an empty system prompt to the LLM.
+  const contextMessages = [];
+  if (systemPromptContent && systemPromptContent.trim().length > 0) {
+    contextMessages.push({ role: "system", content: systemPromptContent.trim() });
+  }
 
   return contextMessages;
 }
@@ -913,7 +927,7 @@ function estimateTokens(text) {
 }
 
 
-// No-op for Vectra (kept for compatibility)
+// Legacy no-op placeholder retained for compatibility (previously used for Vectra maintenance)
 async function getMemoryTable() {
   await ensureIndex();
   return true;
@@ -1361,8 +1375,8 @@ async function clearCharacterMemories(characterName) {
       return false;
     }
     
-    const { deleteItemsByCharacter } = await import('./vectra-wrapper.js');
-    const deletedCount = await deleteItemsByCharacter(characterName);
+  const { deleteItemsByCharacter } = await import('./vector-store-sqlite-vec.js');
+  const deletedCount = await deleteItemsByCharacter(characterName);
     
     console.log(`Cleared ${deletedCount} memory entries for character: ${characterName}`);
     return true;

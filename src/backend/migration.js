@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { initializeDatabase, getDatabase } from './database.js';
+import { migrateLegacyVectra } from './migrate-vectra-to-sqlite-vec.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -247,7 +248,19 @@ async function runMigration() {
   console.log('- Original JSON data backed up to data-backup/');
   console.log('- SQLite database created at data/chunrp.db');
   console.log('- All data migrated and validated');
-  console.log('- Vector memories remain in data/memory-vectra/ (unchanged)');
+  // Vector memory migration (legacy vectra -> sqlite-vec)
+  try {
+    const vecRes = await migrateLegacyVectra();
+    if (vecRes.migrated) {
+      console.log(`- Migrated ${vecRes.migrated} legacy vector memories into SQLite (sqlite-vec)`);
+    } else if (vecRes.skipped) {
+      console.log(`- Vectra migration skipped: ${vecRes.reason}`);
+    } else if (vecRes.error) {
+      console.log(`- Vectra migration error: ${vecRes.error}`);
+    }
+  } catch (e) {
+    console.log('- Vectra migration unexpected error:', e.message || e);
+  }
   
   return true;
 }

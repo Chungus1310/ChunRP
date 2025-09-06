@@ -36,6 +36,8 @@ import {
   retrieveRelevantMemories, 
   initializeVectorStorage 
 } from './memory-system.js';
+import { startTursoSync, stopTursoSync, isTursoSyncing, getTursoSyncStatus } from './turso-sync.js';
+import { getDatabase } from './database.js';
 
 // Database initialization
 import { initializeDatabase, closeDatabase } from './database.js';
@@ -47,6 +49,13 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
+// Moved logger before routes so all requests get logged
+app.use((req, res, next) => {
+  if (req.method !== 'GET') {
+    console.log(`Request: ${req.method} ${req.url}`);
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 // Serve static files for frontend (css, js, assets)
@@ -97,8 +106,17 @@ app.get('/api/health', (req, res) => {
     status: 'ok', 
     timestamp: Date.now(),
     uptime: process.uptime(),
-    memory: process.memoryUsage()
+    memory: process.memoryUsage(),
+    turso: getTursoSyncStatus()
   });
+});
+// Turso sync status endpoint (lightweight)
+app.get('/api/turso-sync-status', (req, res) => {
+  try {
+    res.json(getTursoSyncStatus());
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'status error' });
+  }
 });
 // --- SSE LOG BROADCAST SETUP ---
 
@@ -121,12 +139,14 @@ function loadSettingsFromDB() {
           gemini: '',
           openrouter: '',
           huggingface: '',
-          mistral: ''
+          mistral: '',
+          glm: ''
         },
         memory: {
           journalFrequency: 10,
           retrievalCount: 5,
           historyMessageCount: 15,
+          enableMemoryRetrieval: true,
           embeddingProvider: 'nvidia',
           embeddingModel: 'baai/bge-m3',
           queryEmbeddingMethod: 'llm-summary',
@@ -351,8 +371,8 @@ app.post('/api/chat', async (req, res) => {
       character,
       message,
       userProfile,
-      chatHistory, // Pass history (generateResponse modifies it)
-      mergedSettings
+      chatHistory,
+      { ...mergedSettings, stream: false }
     );
 
     // --- ROBUSTNESS GUARD ---
@@ -394,6 +414,66 @@ app.post('/api/chat', async (req, res) => {
     
     // For unknown errors, send a generic message
     res.status(500).json({ error: "Failed to generate chat response due to an unexpected server error." });
+  }
+});
+
+// Streaming chat endpoint (chunked JSON lines)
+app.post('/api/chat/stream', async (req, res) => {
+  try {
+    const { characterName, message, settings } = req.body || {};
+    if (!characterName || !message) {
+      return res.status(400).json({ error: 'Character name and message are required.' });
+    }
+    const character = loadCharacterWithCache(characterName);
+    if (!character) return res.status(404).json({ error: 'Character not found' });
+    const chatHistory = loadChatHistory(characterName);
+    const globalSettings = loadSettingsFromDB();
+    const mergedSettings = { ...globalSettings, ...(settings || {}) };
+    const userProfile = mergedSettings.user || { name: 'User' };
+
+    // Headers for chunked transfer
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Transfer-Encoding', 'chunked');
+    res.setHeader('Cache-Control', 'no-cache');
+
+    let accumulated = '';
+    const onToken = (token) => {
+      if (!token) return;
+      accumulated += token;
+      try {
+        res.write(JSON.stringify({ type: 'token', token }) + '\n');
+      } catch (e) {
+        console.warn('Stream write failed:', e.message || e);
+      }
+    };
+
+    let finalResponse;
+    try {
+      finalResponse = await generateResponse(
+        character,
+        message,
+        userProfile,
+        chatHistory,
+        { ...mergedSettings, stream: true, onToken }
+      );
+    } catch (err) {
+      res.write(JSON.stringify({ type: 'error', error: err.message || 'Generation failed' }) + '\n');
+      res.end();
+      return;
+    }
+
+    // Persist history (generateResponse already pushed messages)
+    saveChatHistory(characterName, chatHistory);
+    res.write(JSON.stringify({ type: 'done', response: finalResponse }) + '\n');
+    res.end();
+  } catch (error) {
+    console.error('Error in POST /api/chat/stream:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to stream chat response.' });
+    } else {
+      try { res.write(JSON.stringify({ type: 'error', error: 'Internal server error' }) + '\n'); } catch {}
+      res.end();
+    }
   }
 });
 
@@ -439,7 +519,7 @@ app.put('/api/chat/:characterName', (req, res) => {
 });
 
 // Clear chat history
-app.delete('/api/chat/:characterName', (req, res) => {
+app.delete('/api/chat/:characterName', async (req, res) => {
   try {
     const characterName = req.params.characterName;
     // Optional: Check if character exists first
@@ -453,7 +533,7 @@ app.delete('/api/chat/:characterName', (req, res) => {
     console.log(`Clearing chat for ${characterName}, preserving first message: ${beforeClear.length > 0 ? 'Yes' : 'No first message'}`);
     
     // Clear chat history (preserving first message)
-    clearChatHistory(characterName); 
+  await clearChatHistory(characterName); 
     
     // Log the result after clearing
     const afterClear = loadChatHistory(characterName);
@@ -479,11 +559,17 @@ app.get('/api/memories/:characterName', async (req, res) => {
     const chatHistory = loadChatHistory(charName);    // Load settings
     const settings = loadSettingsFromDB();
     const retrievalCount = settings.memory?.retrievalCount ?? 5;
+    const retrievalDisabled = settings.memory?.enableMemoryRetrieval === false || retrievalCount <= 0;
     // Determine last user message for query
     const lastUser = [...chatHistory].reverse().find(m => m.role === 'user');
     const currentMessage = lastUser ? lastUser.content : '';
-    // Fetch relevant memories
-    let memories = await retrieveRelevantMemories(currentMessage, character, retrievalCount, settings, chatHistory);
+    let memories = [];
+    if (!retrievalDisabled) {
+      // Fetch relevant memories
+      memories = await retrieveRelevantMemories(currentMessage, character, retrievalCount, settings, chatHistory);
+    } else {
+      console.log(`Memory retrieval endpoint skipped (disabled=${settings.memory?.enableMemoryRetrieval === false} retrievalCount=${retrievalCount})`);
+    }
 
     // Apply backend filtering for importance/recency if requested
     if (filter === 'important') {
@@ -544,7 +630,9 @@ app.post('/api/memories/:characterName/recycle', async (req, res) => {
     }
   } catch (error) {
     console.error(`Error in POST /api/memories/${req.params.characterName}/recycle:`, error);
-    res.status(500).json({ error: 'Failed to recycle memories due to server error.' });  }
+    progressStore.delete(req.params.characterName);
+    res.status(500).json({ error: 'Failed to recycle memories due to server error.' });
+  }
 });
 
 // Get recycling progress for a character
@@ -585,8 +673,21 @@ app.put('/api/settings', (req, res) => {
         return res.status(400).json({ error: 'Invalid settings data provided.' });
     }
     const settings = req.body;
-    saveSettingsToDB(settings); // saveSettingsToDB handles database errors
-    res.json(settings); // Return saved settings
+    saveSettingsToDB(settings);
+    // Turso sync management
+    try {
+      const turso = settings.turso || {};
+      stopTursoSync();
+      if (turso.enabled && turso.url && (turso.token || turso.authToken)) {
+        const started = startTursoSync({ url: turso.url, authToken: turso.token || turso.authToken, intervalMs: turso.syncInterval || 60000 });
+        if (started) console.log('[Turso] Remote sync enabled (push/pull mode).');
+      } else {
+        console.log('[Turso] Sync disabled via settings.');
+      }
+    } catch (e) {
+      console.warn('Failed to apply Turso sync settings:', e.message || e);
+    }
+    res.json(settings);
   } catch (error) {
     // Unlikely if saveSettingsToDB handles errors
     console.error("Error in PUT /api/settings:", error);
@@ -626,12 +727,6 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
-// Simple request logger middleware
-app.use((req, res, next) => {
-  console.log(`Request: ${req.method} ${req.url}`);
-  next();
-});
-
 // Initialize database before starting server
 async function startServer() {
   console.log('Initializing data directories...');
@@ -646,11 +741,38 @@ async function startServer() {
   
   console.log('Initializing vector storage...');
   await initializeVectorStorage();
+  // Boot-time optional Turso sync
+  try {
+    const db = getDatabase();
+    const row = db.prepare('SELECT data FROM settings WHERE id = 1').get();
+    if (row && row.data) {
+      const settings = JSON.parse(row.data);
+      const turso = settings.turso || {};
+      if (turso.enabled && turso.url && (turso.token || turso.authToken)) {
+        const started = startTursoSync({ url: turso.url, authToken: turso.token || turso.authToken, syncInterval: turso.syncInterval || 60000 });
+        if (started) {
+          console.log('[Turso] Sync started (periodic). Bootstrapping...');
+          ensureInitialSync().then(info => {
+            if (info.success) console.log(`[Turso] Initial sync success (localEmpty=${info.localEmpty}).`);
+            else if (!info.skipped) console.warn('[Turso] Initial sync failed; background sync will retry.');
+          }).catch(e => console.warn('[Turso] Initial sync error:', e.message || e));
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Turso sync startup skipped:', e.message || e);
+  }
   
   const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log('Database: SQLite (data/chunrp.db)');
-    console.log('Vector storage: Vectra (data/memory-vectra/)');
+    console.log('Vector storage: sqlite-vec (embedded)');
+    if (isTursoSyncing()) console.log('Turso sync: ACTIVE');
+    else console.log('Turso sync: disabled');
+    const syncStatus = getTursoSyncStatus();
+    if (syncStatus.active) {
+      console.log(`[Turso] Last initialSyncCompleted=${syncStatus.initialSyncCompleted}`);
+    }
   });
   
   return server;

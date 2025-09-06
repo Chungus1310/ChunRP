@@ -51,12 +51,19 @@ function updateConnectionStatus(isConnected) {
   connectionStatus.isConnected = isConnected;
   connectionStatus.lastHeartbeat = Date.now();
 
-  const statusIndicator = document.querySelector('.connection-status');
-  if (statusIndicator) {
+  // Update all connection status indicators (both sidebar badge and floating dot)
+  const allIndicators = document.querySelectorAll('.conn-status-badge, .conn-status-float');
+  allIndicators.forEach(statusIndicator => {
     statusIndicator.classList.toggle('connected', isConnected);
     statusIndicator.classList.toggle('disconnected', !isConnected);
     statusIndicator.title = isConnected ? 'Connected' : 'Disconnected';
-  }
+    
+    // Update different child element types
+    const badge = statusIndicator.querySelector('.status-indicator');
+    const dot = statusIndicator.querySelector('.status-dot');
+    if (badge) badge.style.backgroundColor = isConnected ? '#4caf50' : '#f44336';
+    if (dot) dot.style.backgroundColor = isConnected ? '#4caf50' : '#f44336';
+  });
 }
 
 // Heartbeat check
@@ -225,7 +232,19 @@ function cleanup() {
 
 // Add cleanup on page unload
 window.addEventListener('beforeunload', cleanup);
-window.addEventListener('unload', cleanup);
+// Note: 'unload' event is deprecated, using 'beforeunload' for cleanup
+
+// Handle window resize to sync mobile chat class
+window.addEventListener('resize', () => {
+  // Sync mobile-chat-active class based on screen size and active character
+  if (state.activeCharacter) {
+    if (isMobile()) {
+      document.body.classList.add('mobile-chat-active');
+    } else {
+      document.body.classList.remove('mobile-chat-active');
+    }
+  }
+});
 
 // Main application JavaScript for Immersive Roleplay Chat
 // Implements the frontend functionality as described in PLAN.md
@@ -238,6 +257,91 @@ const API = {
   MODELS: '/api/models',
   MEMORIES: '/api/memories'
 };
+
+// Dynamic Theme Manager ------------------------------------------------------
+// Scans loaded CSS (themes.css) for [data-theme="..."] selectors and builds a
+// runtime registry. Eliminates need to hard-code themes in JS.
+const ThemeManager = (() => {
+  let _registry = {}; // themeId -> { name, description }
+  let _initialized = false;
+  const LEGACY_THEME_ALIASES = {
+    // Stored historical values -> new canonical IDs from CSS
+    'dark': 'modern-dark',
+    'light': 'modern-light'
+  };
+
+  function _prettyName(id) {
+    return id
+      .replace(/^[a-z]/, c => c.toUpperCase())
+      .replace(/[-_]+/g, ' ')
+      .replace(/\b([a-z])/g, (_, c) => c.toUpperCase());
+  }
+
+  function _scanThemesFromStyleSheets() {
+    const found = new Set();
+    // Attempt to read all same-origin stylesheets
+    for (const sheet of Array.from(document.styleSheets)) {
+      let rules; try { rules = sheet.cssRules; } catch (e) { continue; }
+      if (!rules) continue;
+      for (const rule of Array.from(rules)) {
+        if (!(rule instanceof CSSStyleRule) || !rule.selectorText) continue;
+        const matches = rule.selectorText.match(/\[data-theme="([^"]+)"\]/g);
+        if (matches) {
+          for (const m of matches) {
+            const idMatch = m.match(/\[data-theme="([^"]+)"\]/);
+            if (idMatch) found.add(idMatch[1]);
+          }
+        }
+      }
+    }
+    return Array.from(found);
+  }
+
+  function _rebuildRegistry() {
+    const discovered = _scanThemesFromStyleSheets();
+    // If nothing found, provide a minimal fallback so UI still works
+    if (discovered.length === 0) {
+      discovered.push('modern-dark', 'modern-light');
+    }
+    const next = {};
+    for (const id of discovered) {
+      next[id] = {
+        id,
+        name: _prettyName(id),
+        description: `Auto-detected theme: ${_prettyName(id)}`,
+        dataTheme: id // Canonical attribute value
+      };
+    }
+    _registry = next;
+    _initialized = true;
+    document.dispatchEvent(new CustomEvent('themes:updated', { detail: { themes: getAllThemes() } }));
+  }
+
+  function init() {
+    if (_initialized) return;
+    _rebuildRegistry();
+  }
+
+  function refresh() { _rebuildRegistry(); }
+  function getAllThemes() { init(); return Object.keys(_registry); }
+  function getThemeInfo(id) { init(); return _registry[id]; }
+  function isValidTheme(id) { init(); return !!_registry[id]; }
+  function getDefaultTheme() { init(); return _registry['modern-dark'] ? 'modern-dark' : Object.keys(_registry)[0]; }
+  function normalize(id) {
+    if (!id) return getDefaultTheme();
+    if (LEGACY_THEME_ALIASES[id]) id = LEGACY_THEME_ALIASES[id];
+    return isValidTheme(id) ? id : getDefaultTheme();
+  }
+
+  // Initialize immediately after definition so early calls work with a registry
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  return { getAllThemes, getThemeInfo, isValidTheme, getDefaultTheme, refresh, normalize };
+})();
 
 // Application state
 const state = {
@@ -267,18 +371,19 @@ const dom = {
   createCharacterBtn: document.getElementById('create-character-btn'),
   editCharacterBtn: document.getElementById('edit-character-btn'),
   clearChatBtn: document.getElementById('clear-chat-btn'),
+  sceneBreakBtn: document.getElementById('scene-break-btn'),
   settingsBtn: document.getElementById('settings-btn'),  // Add new elements
+  chatToolsToggle: document.getElementById('chat-tools-toggle'), // New toggle for dropdown
+  chatToolsMenu: document.getElementById('chat-tools-menu'),   // New dropdown menu
   emojiBtn: document.getElementById('emoji-btn'),
   regenBtn: document.getElementById('regen-btn'),
   memoryViewBtn: document.getElementById('memory-view-btn'),
   recycleMemoryBtn: document.getElementById('recycle-memory-btn'),
   memoryPanel: document.getElementById('memory-panel'),
-  // Add mobile-specific elements
-  mobileMenuToggle: document.getElementById('mobile-menu-toggle'),
-  mobileNavFooter: document.getElementById('mobile-nav-footer'),
   sidebar: document.querySelector('.sidebar'),
   // Import/Export chat buttons (to be added in HTML)
   exportChatBtn: document.getElementById('export-chat-btn'),
+  desktopSidebarToggle: document.getElementById('desktop-sidebar-toggle'),
   importChatBtn: document.getElementById('import-chat-btn'),
   importChatInput: document.getElementById('import-chat-input')
 };
@@ -345,7 +450,7 @@ async function initApp() {
     await loadSettings();
 
     // Apply theme from settings
-    applyTheme(state.settings.theme || 'dark');
+    applyTheme(state.settings.theme || ThemeManager.getDefaultTheme());
     applyBubbleStyle(state.settings.bubbleStyle || 'rounded');
 
     // Load model configurations
@@ -363,6 +468,12 @@ async function initApp() {
     // Initialize emoji picker
     initEmojiPicker();
 
+    // Keyboard-safe input on mobile (VisualViewport)
+    initViewportGuards();
+
+    // Mobile message actions: long-press & kebab
+    initMobileMessageActions();
+
     // Setup import/export chat event listeners
     if (dom.exportChatBtn) {
       dom.exportChatBtn.addEventListener('click', exportChatHistory);
@@ -379,24 +490,104 @@ async function initApp() {
     // Add connection status indicator to the UI
     addConnectionStatusIndicator();
 
+    // Restore sidebar state from localStorage on desktop
+    if (!isMobile() && localStorage.getItem('sidebarCollapsed') === 'true') {
+      const container = document.querySelector('.app-container');
+      if (container) container.classList.add('sidebar-collapsed');
+    }
+
+    // Mark application initialized for startup reveal animation (safe: just adds class)
+    requestAnimationFrame(() => document.body.classList.add('app-initialized'));
+
+    // Initialize rotating tips (non-intrusive)
+    initWelcomeTips();
+
   } catch (error) {
     console.error('Error initializing app:', error);
     displayToast('Failed to initialize application. Please check the console for details.', 'error', 8000);
   }
 }
 
+// VisualViewport guards: keep footer/input visible under keyboards
+function initViewportGuards() {
+  try {
+    const root = document.documentElement;
+    const vv = window.visualViewport;
+    const applyInset = () => {
+      const kbInset = (vv && (window.innerHeight - vv.height) > 0) ? (window.innerHeight - vv.height) : 0;
+      root.style.setProperty('--kb-inset', kbInset + 'px');
+    };
+    applyInset();
+    if (vv) {
+      vv.addEventListener('resize', applyInset);
+      vv.addEventListener('scroll', applyInset);
+    } else {
+      window.addEventListener('resize', applyInset);
+      window.addEventListener('orientationchange', applyInset);
+    }
+  } catch (e) { /* noop */ }
+}
+
+// Enhance mobile actions: long-press shows inline actions; kebab button toggles
+function initMobileMessageActions() {
+  const container = dom.chatMessages;
+  if (!container) return;
+  let pressTimer = null;
+  container.addEventListener('touchstart', (e) => {
+    const msg = e.target.closest('.message');
+    if (!msg) return;
+    pressTimer = setTimeout(() => {
+      msg.classList.add('message--actions-visible');
+    }, 400);
+  }, { passive: true });
+  container.addEventListener('touchend', () => {
+    clearTimeout(pressTimer);
+    pressTimer = null;
+  });
+  container.addEventListener('click', (e) => {
+    const kebab = e.target.closest('.message-kebab');
+    if (!kebab) return;
+    const msg = kebab.closest('.message');
+    if (msg) msg.classList.toggle('message--actions-visible');
+  });
+}
+
+// Lightweight rotating tips for landing page
+function initWelcomeTips() {
+  const tipEl = document.getElementById('welcome-rotating-tip');
+  if (!tipEl) return; // If markup not present, silently exit
+  const tips = [
+    'Tip: Hover or long-press messages to edit.',
+    'Tip: Change themes in Settings > Appearance.',
+    'Tip: Memories adapt as you roleplay.',
+    'Tip: Enable Streaming in Settings for live tokens.',
+    'Tip: Use the ⋯ menu for tools & actions.'
+  ];
+  let idx = 0;
+  const swap = () => {
+    tipEl.style.opacity = 0;
+    setTimeout(() => {
+      tipEl.textContent = tips[idx % tips.length];
+      tipEl.style.opacity = 1;
+      idx++;
+    }, 250);
+  };
+  swap();
+  setInterval(swap, 5000);
+}
+
 // Add connection status indicator to UI
 function addConnectionStatusIndicator() {
-  // Check if indicator already exists
-  if (document.querySelector('.connection-status')) return;
+  // Check if floating indicator already exists
+  if (document.querySelector('.conn-status-float')) return;
 
   const indicator = document.createElement('div');
-  indicator.className = 'connection-status connected';
+  indicator.className = 'conn-status-float connected';
   indicator.title = 'Connected';
   indicator.innerHTML = '<div class="status-dot"></div>';
 
   // Add to header or appropriate location
-  const header = document.querySelector('.header') || document.querySelector('.chat-header') || document.body;
+  const header = document.querySelector('.chat-header') || document.body;
   header.appendChild(indicator);
 }
 
@@ -405,6 +596,10 @@ async function loadSettings() {
   try {
     const response = await makeRequest(API.SETTINGS, {}, 10000, 1);
     state.settings = await response.json();
+    // Normalize legacy / invalid theme ids to an available one
+    if (state.settings && state.settings.theme) {
+      state.settings.theme = ThemeManager.normalize(state.settings.theme);
+    }
     return state.settings;
   } catch (error) {
     console.error('Error loading settings:', error);
@@ -416,15 +611,22 @@ async function loadSettings() {
       topP: 0.9,
       maxTokens: 2048,
       maxContextTokens: 6000,
+      apiKeys: { gemini: '', openrouter: '', huggingface: '', mistral: '', glm: '' },
       memory: {
         journalFrequency: 10,
-        retrievalCount: 5
+        retrievalCount: 5,
+        historyMessageCount: 15,
+        enableMemoryRetrieval: true,
+        embeddingProvider: 'nvidia',
+        embeddingModel: 'baai/bge-m3',
+        queryEmbeddingMethod: 'llm-summary',
+        analysisProvider: 'gemini',
+        analysisModel: 'gemini-2.0-flash',
+        hydeEnabled: false,
+        weights: { recency: 5, emotionalSignificance: 7, decisionRelevance: 6 }
       },
-      user: {
-        name: 'User',
-        persona: 'A friendly user chatting with the character.'
-      },
-      theme: 'dark',
+      user: { name: 'User', persona: 'A friendly user chatting with the character.' },
+      theme: ThemeManager.getDefaultTheme(),
       bubbleStyle: 'rounded'
     };
     return state.settings;
@@ -507,27 +709,31 @@ function renderCharacterList() {
     deleteBtn.innerHTML = '<i class="ri-delete-bin-line"></i>';
     deleteBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (confirm(`Delete character '${character.name}'? This cannot be undone.`)) {
-        try {
-          const res = await fetch(`/api/characters/${encodeURIComponent(character.name)}`, { method: 'DELETE' });
-          if (res.ok) {
-            // Remove from state and re-render
-            state.characters = state.characters.filter(c => c.name !== character.name);
-            // If the deleted character was active, clear active
-            if (state.activeCharacter?.name === character.name) {
-              state.activeCharacter = null;
-              dom.chatContainer.classList.add('hidden');
-              dom.welcomeScreen.classList.remove('hidden');
-            }
-            renderCharacterList();
-            showSuccessMessage(`Character '${character.name}' deleted.`);
-          } else {
-            const data = await res.json().catch(() => ({}));
-            showErrorMessage(data.error || 'Failed to delete character.');
+      const confirmed = await showConfirm({
+        title: 'Delete Character',
+        message: `Delete character '${character.name}'? This cannot be undone.`,
+        confirmText: 'Delete',
+        confirmVariant: 'danger'
+      });
+      if (!confirmed) return;
+      try {
+        const res = await fetch(`/api/characters/${encodeURIComponent(character.name)}`, { method: 'DELETE' });
+        if (res.ok) {
+          state.characters = state.characters.filter(c => c.name !== character.name);
+          if (state.activeCharacter?.name === character.name) {
+            state.activeCharacter = null;
+            document.body.classList.remove('mobile-chat-active');
+            dom.chatContainer.classList.add('hidden');
+            dom.welcomeScreen.classList.remove('hidden');
           }
-        } catch (err) {
-          showErrorMessage('Failed to delete character.');
+          renderCharacterList();
+          showSuccessMessage(`Character '${character.name}' deleted.`);
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showErrorMessage(data.error || 'Failed to delete character.');
         }
+      } catch (err) {
+        showErrorMessage('Failed to delete character.');
       }
     });
 
@@ -567,23 +773,21 @@ async function selectCharacter(characterName) {
     dom.characterAvatar.onerror = () => {
       dom.characterAvatar.src = 'assets/default-avatar.svg';
     };
-    dom.welcomeScreen.classList.add('hidden');
-    dom.chatContainer.classList.remove('hidden');
-
-    // Fix sidebar state management - ensure sidebar is properly visible on desktop
-    if (!isMobile()) {
-      // On desktop, make sure sidebar is always visible after character selection
-      dom.sidebar.classList.remove('expanded');
-    } else {
-      // On mobile, collapse sidebar after character selection to show chat
-      dom.sidebar.classList.remove('expanded');
-    }
+ 
 
     // Highlight the selected character in the list
     const characterCards = document.querySelectorAll('.character-card');
     characterCards.forEach(card => {
       card.classList.toggle('active', card.dataset.characterName === characterName);
     });
+
+    dom.welcomeScreen.classList.add('hidden');
+    dom.chatContainer.classList.remove('hidden');
+
+    if (isMobile()) {
+      document.body.classList.add('mobile-chat-active');
+      dom.sidebar.classList.remove('expanded');
+    }
 
     // Load chat history
     await loadChatHistory(characterName);
@@ -656,6 +860,74 @@ async function saveChatHistory() {
   }
 }
 
+// Reusable animated confirmation dialog (Promise-based)
+function showConfirm({ title = 'Confirm', message = 'Are you sure?', confirmText = 'Yes', cancelText = 'Cancel', confirmVariant = 'primary' } = {}) {
+  return new Promise(resolve => {
+    const dialog = document.getElementById('confirm-dialog');
+    if (!dialog) { // Fallback gracefully
+      const native = window.confirm(message);
+      resolve(native); return;
+    }
+    const titleEl = document.getElementById('confirm-title');
+    const msgEl = document.getElementById('confirm-message');
+    const okBtn = document.getElementById('confirm-ok-btn');
+    const cancelBtn = document.getElementById('confirm-cancel-btn');
+    // Set content
+    if (titleEl) titleEl.textContent = title;
+    if (msgEl) msgEl.textContent = message;
+    if (okBtn) {
+      okBtn.textContent = confirmText;
+      okBtn.classList.remove('danger');
+      if (confirmVariant === 'danger') {
+        okBtn.style.background = 'linear-gradient(135deg, var(--error-color), #ff6b6b)';
+        okBtn.style.borderColor = 'var(--error-color)';
+      } else {
+        okBtn.style.background = '';
+        okBtn.style.borderColor = '';
+      }
+    }
+    if (cancelBtn) cancelBtn.textContent = cancelText;
+
+    // Show dialog
+    dialog.classList.remove('hidden');
+    // Focus management
+    let previousActive = document.activeElement;
+    setTimeout(() => okBtn?.focus(), 10);
+
+    const cleanup = (result) => {
+      dialog.classList.add('hidden');
+      // Restore focus
+      if (previousActive && typeof previousActive.focus === 'function') previousActive.focus();
+      // Remove listeners to avoid leaks
+      okBtn?.removeEventListener('click', onOk);
+      cancelBtn?.removeEventListener('click', onCancel);
+      document.removeEventListener('keydown', onKey);
+      resolve(result);
+    };
+
+    const onOk = () => cleanup(true);
+    const onCancel = () => cleanup(false);
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); cleanup(false); }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (document.activeElement === okBtn) {
+          cleanup(true);
+        } else if (document.activeElement === cancelBtn) {
+          cleanup(false);
+        } else {
+          // Default to confirm if focus is elsewhere (current behavior fallback)
+          cleanup(true);
+        }
+      }
+    };
+
+    okBtn?.addEventListener('click', onOk);
+    cancelBtn?.addEventListener('click', onCancel);
+    document.addEventListener('keydown', onKey);
+  });
+}
+
 // Clear chat history for the active character
 async function clearChatHistory() {
   if (!state.activeCharacter) return;
@@ -694,50 +966,14 @@ function renderChatHistory() {
     console.log("renderChatHistory: No history to render.");
     return;
   }
-
-  // --- UI Performance Optimization ---
-  // Only render the last N messages for performance
-  const MAX_RENDERED_MESSAGES = 100;
-  const totalMessages = state.chatHistory.length;
-  let startIdx = 0;
-  let showMore = false;
-  if (totalMessages > MAX_RENDERED_MESSAGES) {
-    startIdx = totalMessages - MAX_RENDERED_MESSAGES;
-    showMore = true;
-  }
-
-  // Add a class to reduce effects if chat is large
-  if (totalMessages > 200) {
-    dom.chatMessages.classList.add('performance-mode');
-  } else {
-    dom.chatMessages.classList.remove('performance-mode');
-  }
-
   const fragment = document.createDocumentFragment();
-  if (showMore) {
-    // Add a 'Show More' button at the top
-    const showMoreDiv = document.createElement('div');
-    showMoreDiv.className = 'show-more-messages';
-    showMoreDiv.innerHTML = `<button class="btn secondary btn-sm" id="show-more-btn">Show earlier messages...</button>`;
-    fragment.appendChild(showMoreDiv);
-    // Handler to show all messages on click
-    setTimeout(() => {
-      const btn = document.getElementById('show-more-btn');
-      if (btn) {
-        btn.onclick = () => {
-          dom.chatMessages.classList.remove('performance-mode');
-          renderAllChatHistory();
-        };
-      }
-    }, 0);
-  }
-  for (let i = startIdx; i < totalMessages; i++) {
+  for (let i = 0; i < state.chatHistory.length; i++) {
     const message = state.chatHistory[i];
     const messageElement = createMessageElement(message, i);
     if (messageElement instanceof Node) {
       fragment.appendChild(messageElement);
     } else {
-      console.error(`renderChatHistory: Failed to create valid element for message ${i + 1}`, message);
+      console.error(`renderChatHistory: Failed to create valid element for message ${i}`, message);
     }
   }
   dom.chatMessages.appendChild(fragment);
@@ -753,26 +989,7 @@ function renderChatHistory() {
   scrollToBottom();
 }
 
-// Helper to render all messages (when user clicks Show More)
-function renderAllChatHistory() {
-  dom.chatMessages.innerHTML = '';
-  if (!state.chatHistory || state.chatHistory.length === 0) return;
-  const fragment = document.createDocumentFragment();
-  state.chatHistory.forEach((message, index) => {
-    const messageElement = createMessageElement(message, index);
-    if (messageElement instanceof Node) {
-      fragment.appendChild(messageElement);
-    }
-  });
-  dom.chatMessages.appendChild(fragment);
-  const messageElements = dom.chatMessages.querySelectorAll('.message');
-  messageElements.forEach(el => {
-    requestAnimationFrame(() => {
-      el.classList.add('animate-in');
-    });
-  });
-  scrollToBottom();
-}
+// Removed legacy performance/show-more logic
 
 // --- Add New Handler Functions ---
 
@@ -781,6 +998,16 @@ async function handleMultiDelete(startIndex) {
   if (!state.activeCharacter) return;
 
   const messagesToDeleteCount = state.chatHistory.length - startIndex;
+  
+  // Show confirmation dialog
+  const confirmMessage = messagesToDeleteCount === 1 
+    ? 'Are you sure you want to delete this message?'
+    : `Are you sure you want to delete ${messagesToDeleteCount} messages from this point onward?`;
+  
+  if (!confirm(confirmMessage)) {
+    return; // User cancelled
+  }
+
   try {
     // Remove messages from state
     state.chatHistory.splice(startIndex);
@@ -806,7 +1033,7 @@ function handleEditMessage(index) {
   if (!messageElement) return;
 
   const bubbleDiv = messageElement.querySelector('.message-bubble');
-  const originalContent = bubbleDiv.dataset.originalContent;
+  const originalContent = bubbleDiv.dataset.originalContent || (state.chatHistory[index] && state.chatHistory[index].content) || '';
 
   // Prevent editing if already in edit mode
   if (bubbleDiv.querySelector('textarea.edit-textarea')) {
@@ -830,14 +1057,13 @@ function handleEditMessage(index) {
     const newContent = editTextArea.value.trim();
     if (newContent && newContent !== originalContent) {
       try {
-        // Update state
+        // Update state FIRST
         state.chatHistory[index].content = newContent;
         // Optionally add/update a timestamp for the edit
         state.chatHistory[index].editedTimestamp = Date.now();
 
-        // Update UI immediately before saving
-        bubbleDiv.dataset.originalContent = newContent;
-        bubbleDiv.innerHTML = marked.parse(newContent); // Render new markdown
+        // Re-render from state
+        reRenderSingleMessage(index);
 
         // Save to backend
         await saveChatHistory();
@@ -845,12 +1071,14 @@ function handleEditMessage(index) {
       } catch (error) {
         console.error('Error saving edited message:', error);
         showErrorMessage('Failed to save edit.');
-        // Revert UI on error
-        bubbleDiv.innerHTML = marked.parse(originalContent);
+        // Revert state and re-render on error
+        state.chatHistory[index].content = originalContent;
+        delete state.chatHistory[index].editedTimestamp;
+        reRenderSingleMessage(index);
       }
     } else {
-      // If content is empty or unchanged, just cancel
-      bubbleDiv.innerHTML = marked.parse(originalContent); // Revert to original
+      // Content is unchanged, just cancel the edit by re-rendering the original state
+      reRenderSingleMessage(index);
     }
   };
 
@@ -858,8 +1086,10 @@ function handleEditMessage(index) {
   cancelBtn.className = 'btn secondary btn-sm';
   cancelBtn.textContent = 'Cancel';
   cancelBtn.onclick = () => {
-    // Revert to original content
-    bubbleDiv.innerHTML = marked.parse(originalContent);
+    // Restore original content in the state
+    state.chatHistory[index].content = originalContent;
+    // Re-render the message bubble from the updated state.
+    reRenderSingleMessage(index);
   };
 
   editActionsDiv.appendChild(saveBtn);
@@ -870,6 +1100,42 @@ function handleEditMessage(index) {
   bubbleDiv.appendChild(editTextArea);
   bubbleDiv.appendChild(editActionsDiv);
   editTextArea.focus(); // Focus the textarea
+}
+
+// Re-render a single message in place (used after edit cancel/save)
+function reRenderSingleMessage(index) {
+  const nodeToReplace = dom.chatMessages.querySelector(`.message[data-message-index="${index}"]`);
+  if (!nodeToReplace) {
+    console.error(`reRenderSingleMessage: Could not find message node with index ${index} to replace.`);
+    return;
+  }
+
+  const messageData = state.chatHistory[index];
+  if (!messageData) {
+    console.error(`reRenderSingleMessage: No chat history data found for index ${index}.`);
+    // As a fallback, just remove the broken node to prevent UI blockage
+    nodeToReplace.remove();
+    return;
+  }
+
+  const replacementNode = createMessageElement(messageData, index);
+
+  if (replacementNode instanceof Node) {
+    nodeToReplace.replaceWith(replacementNode);
+    // Animate the new node in to provide visual feedback
+    requestAnimationFrame(() => {
+      replacementNode.classList.add('animate-in');
+    });
+  } else {
+    console.error(`reRenderSingleMessage: createMessageElement failed to return a valid DOM node for index ${index}.`, messageData);
+    // Fallback: Instead of disappearing, revert the node's content without a full re-render.
+    const bubble = nodeToReplace.querySelector('.message-bubble');
+    if (bubble) {
+      const contentWithoutThoughts = messageData.content.replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, '').trim();
+      const sanitizedContent = DOMPurify.sanitize(marked.parse(contentWithoutThoughts));
+      bubble.innerHTML = sanitizedContent;
+    }
+  }
 }
 
 // --- End New Handler Functions ---
@@ -883,6 +1149,16 @@ function replaceUserPlaceholder(text) {
 
 // Create a message element
 function createMessageElement(message, index) {
+  // Handle special message types like scene breaks
+  if (message.type === 'scene-break') {
+    const breakDiv = document.createElement('div');
+    breakDiv.className = 'scene-break-divider';
+    // You can add text here if you want, e.g., breakDiv.textContent = '...';
+    const hr = document.createElement('hr');
+    breakDiv.appendChild(hr);
+    return breakDiv;
+  }
+
   const messageDiv = document.createElement('div');
   let extraClass = '';
   if (message.pending) extraClass += ' pending';
@@ -918,13 +1194,40 @@ function createMessageElement(message, index) {
     // Original rendering logic for successful messages
     marked.setOptions({ breaks: true, gfm: true, sanitize: false });
     let safeContent = typeof message.content === 'string' ? message.content : '';
-    let filteredContent = safeContent;
+    
+    // --- NEW: Handle displaying AI thoughts ---
+    let filteredContent = safeContent; // Start with full content
     if (message.role === 'assistant') {
-      filteredContent = filteredContent.replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, '');
+      const thoughtRegex = /<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>/gi;
+      const thoughts = [...safeContent.matchAll(thoughtRegex)].map(match => match[1].trim());
+
+      if (thoughts.length > 0) {
+        const thoughtContainer = document.createElement('div');
+        thoughtContainer.className = 'message-thought-container';
+
+        const thoughtBtn = document.createElement('button');
+        thoughtBtn.className = 'thought-btn';
+        thoughtBtn.innerHTML = '<i class="ri-psychotherapy-line"></i>';
+        thoughtBtn.title = 'View character thoughts';
+
+        const thoughtContentDiv = document.createElement('div');
+        thoughtContentDiv.className = 'thought-content';
+        // Sanitize thought content since it's internal AI content
+        thoughtContentDiv.innerHTML = DOMPurify.sanitize(thoughts.join('<hr>'));
+
+        thoughtContainer.appendChild(thoughtBtn);
+        thoughtContainer.appendChild(thoughtContentDiv);
+        messageDiv.appendChild(thoughtContainer);
+      }
+      // Remove thoughts from the content that will be displayed in the bubble
+      filteredContent = safeContent.replace(thoughtRegex, '').trim();
     }
+
     const replacedContent = replaceUserPlaceholder(filteredContent);
     bubbleDiv.dataset.originalContent = safeContent;
-    bubbleDiv.innerHTML = marked.parse(replacedContent);
+    // Sanitize content before rendering with marked
+    const sanitizedContent = DOMPurify.sanitize(marked.parse(replacedContent));
+    bubbleDiv.innerHTML = sanitizedContent;
   }
 
   if (message.pending) {
@@ -962,6 +1265,13 @@ function createMessageElement(message, index) {
     }
 
     messageDiv.appendChild(messageActionsDiv);
+    // Small overflow button for mobile to toggle actions
+    const kebab = document.createElement('button');
+    kebab.className = 'message-kebab';
+    kebab.type = 'button';
+    kebab.setAttribute('aria-label', 'Message options');
+    kebab.innerHTML = '<i class="ri-more-2-fill"></i>';
+    messageDiv.appendChild(kebab);
   }
 
   contentDiv.appendChild(bubbleDiv);
@@ -1151,21 +1461,27 @@ function removeGeneratingIndicator() {
   }
 }
 
-// Scroll to bottom of chat
-function scrollToBottom() {
-  // Try simpler direct scroll first for initial load reliability
-  console.log("scrollToBottom: Scrolling..."); // Log scroll attempt
-  // Setting scrollTop directly might be more reliable on initial render
-  dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight;
+// Scroll to bottom of chat (mobile-safe: scroll the messages container explicitly)
+function scrollToBottom({ smooth = true } = {}) {
+  try {
+    const container = dom.chatMessages;
+    if (!container) return;
 
-  // Keep the scrollIntoView logic commented out for now
-  // const lastMessage = dom.chatMessages.lastElementChild;
-  // if (lastMessage) {
-  //   // Add a small delay to allow the animation to start
-  //   setTimeout(() => {
-  //     lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  //   }, 50); // Adjust delay if needed
-  // }
+    // Prefer to scroll the scrollable chat container directly so the page/body doesn't move
+    // (avoids hiding the top header/tools on mobile browsers).
+    const target = Math.max(0, container.scrollHeight - container.clientHeight);
+    if (typeof container.scrollTo === 'function') {
+      container.scrollTo({ top: target, behavior: smooth ? 'smooth' : 'auto' });
+    } else {
+      container.scrollTop = target;
+    }
+  } catch (err) {
+    // Fallback to scrollIntoView on last message if anything goes wrong
+    const lastMessage = dom.chatMessages && dom.chatMessages.lastElementChild;
+    if (lastMessage && lastMessage.scrollIntoView) {
+      try { lastMessage.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'end' }); } catch (e) { /* ignore */ }
+    }
+  }
 }
 
 // Show the character creation/editing modal
@@ -1421,8 +1737,21 @@ function populateModelOptions(selectedProvider) {
   // Clear existing options
   modelSelect.innerHTML = '';
 
-  // FIX: Use the model configurations loaded from the backend API
-  const models = state.modelConfigurations?.[provider] || [];
+  if (!state.modelConfigurations) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = 'Loading models...';
+    modelSelect.appendChild(option);
+    return;
+  }
+  const models = state.modelConfigurations[provider] || [];
+  if (models.length === 0) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = `No models for ${provider}`;
+    modelSelect.appendChild(option);
+    return;
+  }
 
   // Add options to select
   models.forEach(model => {
@@ -1466,7 +1795,8 @@ function showSettingsModal() {
         
         <div id="models-tab" class="tab-content active">
           <div class="form-group">
-            <label>LLM Provider</label>            <select id="llm-provider">
+            <label for="llm-provider">LLM Provider</label>
+            <select id="llm-provider">
               <option value="gemini" ${state.settings.provider === 'gemini' ? 'selected' : ''}>Gemini</option>
               <option value="openrouter" ${state.settings.provider === 'openrouter' ? 'selected' : ''}>OpenRouter</option>
               <option value="huggingface" ${state.settings.provider === 'huggingface' ? 'selected' : ''}>HuggingFace</option>
@@ -1476,12 +1806,13 @@ function showSettingsModal() {
               <option value="aionlabs" ${state.settings.provider === 'aionlabs' ? 'selected' : ''}>Aion Labs</option>
               <option value="nvidia" ${state.settings.provider === 'nvidia' ? 'selected' : ''}>NVIDIA NIM</option>
               <option value="chutes" ${state.settings.provider === 'chutes' ? 'selected' : ''}>Chutes</option>
+              <option value="glm" ${state.settings.provider === 'glm' ? 'selected' : ''}>GLM (BigModel.cn)</option>
             </select>
           </div>
           
           <!-- Dynamic model selection based on provider -->
           <div class="form-group" id="model-selection-container">
-            <label>Model</label>
+            <label for="model-selection">Model</label>
             <select id="model-selection">
               <!-- Will be populated based on provider selection -->
             </select>
@@ -1489,7 +1820,7 @@ function showSettingsModal() {
 
           <!-- Embedding Model/Provider Selection -->
           <div class="form-group">
-            <label>Embedding Provider</label>
+            <label for="embedding-provider">Embedding Provider</label>
             <select id="embedding-provider">
               <option value="gemini" ${state.settings.memory?.embeddingProvider === 'gemini' ? 'selected' : ''}>Gemini</option>
               <option value="nvidia" ${state.settings.memory?.embeddingProvider === 'nvidia' ? 'selected' : ''}>NVIDIA (bge-m3)</option>
@@ -1498,14 +1829,14 @@ function showSettingsModal() {
             </select>
           </div>
           <div class="form-group">
-            <label>Embedding Model</label>
+            <label for="embedding-model">Embedding Model</label>
             <select id="embedding-model"></select>
             <small>Only compatible models for the selected provider are shown</small>
           </div>
 
           <!-- Query Embedding Method -->
           <div class="form-group">
-            <label>Query Embedding Method</label>
+            <label for="query-embedding-method">Query Embedding Method</label>
             <select id="query-embedding-method">
               <option value="llm-summary" ${!state.settings.memory?.queryEmbeddingMethod || state.settings.memory?.queryEmbeddingMethod === 'llm-summary' ? 'selected' : ''}>LLM Summary (Recommended)</option>
               <option value="hyde" ${state.settings.memory?.queryEmbeddingMethod === 'hyde' ? 'selected' : ''}>HyDE (Hypothetical Document)</option>
@@ -1517,7 +1848,7 @@ function showSettingsModal() {
 
           <!-- Analysis Model/Provider Selection -->
           <div class="form-group">
-            <label>Memory Analysis Provider</label>
+            <label for="analysis-provider">Memory Analysis Provider</label>
             <select id="analysis-provider">
               <option value="gemini" ${state.settings.memory?.analysisProvider === 'gemini' ? 'selected' : ''}>Gemini</option>
               <option value="openrouter" ${state.settings.memory?.analysisProvider === 'openrouter' ? 'selected' : ''}>OpenRouter</option>
@@ -1526,10 +1857,11 @@ function showSettingsModal() {
               <!-- Requesty removed -->
               <option value="cohere" ${state.settings.memory?.analysisProvider === 'cohere' ? 'selected' : ''}>Cohere</option>
               <option value="nvidia" ${state.settings.memory?.analysisProvider === 'nvidia' ? 'selected' : ''}>NVIDIA NIM</option>
+              <option value="glm" ${state.settings.memory?.analysisProvider === 'glm' ? 'selected' : ''}>GLM (BigModel.cn)</option>
             </select>
           </div>
           <div class="form-group">
-            <label>Memory Analysis Model</label>
+            <label for="analysis-model">Memory Analysis Model</label>
             <select id="analysis-model"></select>
             <small>Model used for memory chunk analysis (same list as chat model, but saved separately)</small>
           </div>
@@ -1598,16 +1930,17 @@ function showSettingsModal() {
           <div class="form-group">
             <label for="theme-select">Theme</label>
             <select id="theme-select" class="theme-select">
-              <option value="dark" ${state.settings.theme === 'dark' ? 'selected' : ''}>Dark</option>
-              <option value="light" ${state.settings.theme === 'light' ? 'selected' : ''}>Light</option>
-              <option value="purple" ${state.settings.theme === 'purple' ? 'selected' : ''}>Purple</option>
-              <option value="cyberpunk" ${state.settings.theme === 'cyberpunk' ? 'selected' : ''}>Cyberpunk</option>
-              <option value="ocean" ${state.settings.theme === 'ocean' ? 'selected' : ''}>Ocean</option>
-              <option value="forest" ${state.settings.theme === 'forest' ? 'selected' : ''}>Forest</option>
-              <option value="sunset" ${state.settings.theme === 'sunset' ? 'selected' : ''}>Sunset</option>
-              <option value="rose" ${state.settings.theme === 'rose' ? 'selected' : ''}>Rose</option>
-              <option value="minimal-light" ${state.settings.theme === 'minimal-light' ? 'selected' : ''}>Minimal Light</option>
-              <option value="high-contrast" ${state.settings.theme === 'high-contrast' ? 'selected' : ''}>High Contrast</option>
+              ${(function(){
+                const themes = ThemeManager.getAllThemes();
+                const current = state.settings.theme;
+                // If current theme not in list (e.g., newly added CSS not yet scanned) include it
+                if (current && !themes.includes(current)) themes.unshift(current);
+                return themes.map(id => {
+                  const meta = ThemeManager.getThemeInfo(id) || { name: id, description: 'Custom theme' };
+                  const sel = ThemeManager.normalize(current) === id ? 'selected' : '';
+                  return `<option value="${id}" ${sel} title="${meta.description}">${meta.name}</option>`;
+                }).join('');
+              })()}
             </select>
             <small>Choose a theme that matches your style and preferences</small>
           </div>
@@ -1631,35 +1964,42 @@ function showSettingsModal() {
             <small>Automatically create journal entries from conversations.</small>
           </div>
           <div class="form-group">
-            <label>Journal Frequency</label>
+            <label>
+              <input type="checkbox" id="enable-memory-retrieval" ${state.settings.memory?.enableMemoryRetrieval === false ? '' : 'checked'}>
+              Enable Memory Retrieval
+            </label>
+            <small>Retrieve and inject stored memories into prompts.</small>
+          </div>
+          <div class="form-group">
+            <label for="journal-frequency">Journal Frequency</label>
             <input type="number" id="journal-frequency" min="5" max="50" value="${state.settings.memory?.journalFrequency || 10}">
             <small>Number of messages between creating journal entries</small>
           </div>
             <div class="form-group">
-            <label>Memory Retrieval Count</label>
+            <label for="memory-count">Memory Retrieval Count</label>
             <input type="number" id="memory-count" min="0" max="20" value="${state.settings.memory?.retrievalCount ?? 5}">
             <small>Number of memories to retrieve for context</small>
           </div>
           
           <div class="form-group">
-            <label>Chat History Messages</label>
+            <label for="history-message-count">Chat History Messages</label>
             <input type="number" id="history-message-count" min="5" max="600" value="${state.settings.memory?.historyMessageCount || 15}">
             <small>Number of past messages to include in each prompt</small>
           </div>
             <div class="memory-weights">
             <h3>Memory Importance Weights</h3>
             <div class="param-group">
-              <label>Recency</label>
+              <label for="recency-weight">Recency</label>
               <input type="range" min="0" max="10" value="${state.settings.memory?.weights?.recency || 5}" id="recency-weight">
               <span>${state.settings.memory?.weights?.recency || 5}</span>
             </div>
             <div class="param-group">
-              <label>Emotional Significance</label>
+              <label for="emotional-weight">Emotional Significance</label>
               <input type="range" min="0" max="10" value="${state.settings.memory?.weights?.emotionalSignificance || 7}" id="emotional-weight">
               <span>${state.settings.memory?.weights?.emotionalSignificance || 7}</span>
             </div>
             <div class="param-group">
-              <label>Decision Relevance</label>
+              <label for="decision-weight">Decision Relevance</label>
               <input type="range" min="0" max="10" value="${state.settings.memory?.weights?.decisionRelevance || 6}" id="decision-weight">
               <span>${state.settings.memory?.weights?.decisionRelevance || 6}</span>
             </div>
@@ -1676,7 +2016,7 @@ function showSettingsModal() {
             </div>
             
             <div class="form-group">
-              <label>Reranking Provider</label>
+              <label for="reranking-provider">Reranking Provider</label>
               <select id="reranking-provider">
                 <option value="jina" ${(state.settings.memory?.rerankingProvider || 'jina') === 'jina' ? 'selected' : ''}>Jina AI</option>
                 <option value="cohere" ${state.settings.memory?.rerankingProvider === 'cohere' ? 'selected' : ''}>Cohere</option>
@@ -1686,9 +2026,42 @@ function showSettingsModal() {
             </div>
             
             <div class="form-group">
-              <label>Jina API Key</label>
+              <label for="jina-api-key">Jina API Key</label>
               <input type="password" id="jina-api-key" value="${state.settings.apiKeys?.jina || ''}" placeholder="Enter your Jina API key">
               <small>Get your free API key from <a href="https://jina.ai/" target="_blank">jina.ai</a></small>
+            </div>
+          </div>
+          <div class="turso-sync">
+            <h3>Remote Sync (Turso)</h3>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="turso-enabled" ${state.settings.turso?.enabled ? 'checked' : ''}>
+                Enable Turso Remote Sync
+              </label>
+              <small>Synchronize local SQLite database (including memories) with a remote Turso/libSQL deployment.</small>
+            </div>
+            <div id="turso-config" style="${state.settings.turso?.enabled ? '' : 'display:none;'}">
+              <div class="form-group">
+                <label for="turso-url">Turso Sync URL</label>
+                <input type="text" id="turso-url" value="${state.settings.turso?.url || ''}" placeholder="libsql://YOUR-DB.turso.io">
+                <small>Your Turso/libSQL database URL (starts with libsql://)</small>
+              </div>
+              <div class="form-group">
+                <label for="turso-token">Turso Auth Token</label>
+                <div style="display:flex; gap:8px; align-items:center;">
+                  <input type="password" id="turso-token" value="${state.settings.turso?.authToken || ''}" placeholder="Access token" style="flex:1;">
+                  <button type="button" class="btn secondary" id="turso-token-visibility">Show</button>
+                </div>
+                <small>Personal auth token with access to the database.</small>
+              </div>
+              <div class="form-group">
+                <label for="turso-sync-interval">Sync Interval (ms)</label>
+                <input type="number" id="turso-sync-interval" min="5000" step="1000" value="${state.settings.turso?.syncInterval || 30000}">
+                <small>How often to pull remote changes (minimum 5000ms). Higher values reduce network usage.</small>
+              </div>
+              <div class="form-group">
+                <small>Data flows: Local writes happen instantly; background sync periodically merges remote changes. Disable if offline.</small>
+              </div>
             </div>
           </div>
         </div>
@@ -1770,6 +2143,8 @@ function generateApiKeyInput(index, value, provider, status = 'untested') {
     <div class="api-key-item" data-index="${index}">
       <span class="api-key-status ${status}" title="Status: ${status}"></span>
       <input type="password" class="api-key-input-field" 
+             id="api-key-${provider}-${index}"
+             name="api-key-${provider}-${index}"
              value="${value || ''}" 
              placeholder="Enter API key ${index + 1}"
              data-index="${index}">
@@ -1900,7 +2275,7 @@ function attachSettingsModalEvents() {
         );
         // Fallback if not present
         if (models.length === 0) {
-          models = [{ id: 'gemini-embedding-exp-03-07', name: 'Gemini Embedding (Default)' }];
+          models = [{ id: 'gemini-embedding-001', name: 'Gemini Embedding (Default)' }];
         }
       } else if (embeddingProvider === 'nvidia') {
         // Only allow NVIDIA's bge-m3
@@ -1985,6 +2360,29 @@ function attachSettingsModalEvents() {
   // Initial population
   populateEmbeddingModelOptions();
   populateAnalysisModelOptions();
+
+  // Turso toggle + token visibility
+  const tursoEnabledEl = dom.settingsModal.querySelector('#turso-enabled');
+  const tursoConfigEl = dom.settingsModal.querySelector('#turso-config');
+  if (tursoEnabledEl && tursoConfigEl) {
+    tursoEnabledEl.addEventListener('change', () => {
+      tursoConfigEl.style.display = tursoEnabledEl.checked ? '' : 'none';
+    });
+  }
+  const tursoTokenVisibilityBtn = dom.settingsModal.querySelector('#turso-token-visibility');
+  if (tursoTokenVisibilityBtn) {
+    tursoTokenVisibilityBtn.addEventListener('click', () => {
+      const input = dom.settingsModal.querySelector('#turso-token');
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        tursoTokenVisibilityBtn.textContent = 'Hide';
+      } else {
+        input.type = 'password';
+        tursoTokenVisibilityBtn.textContent = 'Show';
+      }
+    });
+  }
 
   // Change handlers
   dom.settingsModal.querySelector('#embedding-provider').addEventListener('change', populateEmbeddingModelOptions);
@@ -2085,6 +2483,8 @@ function attachSettingsModalEvents() {
   // Save button
   const saveBtn = dom.settingsModal.querySelector('#save-settings-btn');
   saveBtn.addEventListener('click', saveSettingsFromForm);
+  // Prevent native select overflow on small screens by using an overlay picker
+  enableMobileSelectOverlay(dom.settingsModal);
 }
 
 // Save settings from form
@@ -2143,6 +2543,12 @@ async function saveSettingsFromForm() {
     // New memory creation setting
     const enableMemoryCreationEl = document.getElementById('enable-memory-creation');
     const enableMemoryCreation = enableMemoryCreationEl ? enableMemoryCreationEl.checked : true;
+  const enableMemoryRetrievalEl = document.getElementById('enable-memory-retrieval');
+  const enableMemoryRetrieval = enableMemoryRetrievalEl ? enableMemoryRetrievalEl.checked : true;
+
+    // Streaming setting
+    const streamEl = document.getElementById('enable-streaming');
+    const stream = streamEl ? streamEl.checked : false;
 
     // Embedding/analysis settings with null checks
     const embeddingProviderEl = document.getElementById('embedding-provider');
@@ -2153,6 +2559,7 @@ async function saveSettingsFromForm() {
 
     const embeddingProvider = embeddingProviderEl ? embeddingProviderEl.value : 'nvidia';
     const embeddingModel = embeddingModelEl ? embeddingModelEl.value.trim() : 'baai/bge-m3';
+  // embeddingOutputDim removed – model decides dimension
     const queryEmbeddingMethod = queryEmbeddingMethodEl ? queryEmbeddingMethodEl.value : 'llm-summary';
     const analysisProvider = analysisProviderEl ? analysisProviderEl.value : 'gemini';
     const analysisModel = analysisModelEl ? analysisModelEl.value.trim() : 'gemini-2.0-flash';// Get selected theme from dropdown
@@ -2162,6 +2569,18 @@ async function saveSettingsFromForm() {
     // Get selected bubble style - with null check
     const selectedBubbleBtn = document.querySelector('.bubble-btn.active');
     const bubbleStyle = selectedBubbleBtn ? selectedBubbleBtn.dataset.style : 'rounded';
+
+    // Turso remote sync settings
+    const tursoEnabledEl = document.getElementById('turso-enabled');
+    const tursoUrlEl = document.getElementById('turso-url');
+    const tursoTokenEl = document.getElementById('turso-token');
+    const tursoSyncIntervalEl = document.getElementById('turso-sync-interval');
+    const turso = {
+      enabled: !!(tursoEnabledEl && tursoEnabledEl.checked),
+      url: tursoUrlEl ? tursoUrlEl.value.trim() : '',
+      authToken: tursoTokenEl ? tursoTokenEl.value.trim() : '',
+      syncInterval: Math.max(5000, parseInt(tursoSyncIntervalEl ? tursoSyncIntervalEl.value : '30000') || 30000)
+    };
 
     // Create settings object, preserving existing API keys
     const allApiKeys = state.settings.apiKeys || {};
@@ -2191,11 +2610,12 @@ async function saveSettingsFromForm() {
       bubbleStyle, memory: {
         ...state.settings.memory,
         enableMemoryCreation,
+  enableMemoryRetrieval,
         journalFrequency,
         retrievalCount: memoryCount,
         historyMessageCount,
         embeddingProvider,
-        embeddingModel,
+    embeddingModel,
         queryEmbeddingMethod,
         analysisProvider,
         analysisModel,
@@ -2206,7 +2626,9 @@ async function saveSettingsFromForm() {
           emotionalSignificance: emotionalWeight,
           decisionRelevance: decisionWeight
         }
-      }
+      },
+      stream,
+      turso
     };
     // Save settings as before
     await saveSettings(settings);
@@ -2218,9 +2640,21 @@ async function saveSettingsFromForm() {
   }
 }
 
-// Apply selected theme
+// Apply selected theme (data-theme) + legacy class for back-compat
 function applyTheme(theme) {
-  document.body.className = `theme-${theme || 'dark'}`;
+  const normalized = ThemeManager.normalize(theme);
+  const info = ThemeManager.getThemeInfo(normalized);
+
+  // Remove legacy theme-* classes then add current one for backwards CSS
+  document.body.classList.forEach(cls => { if (cls.startsWith('theme-')) document.body.classList.remove(cls); });
+  document.body.classList.add(`theme-${normalized}`);
+
+  // Apply data-theme attribute (fallback to normalized id if metadata missing)
+  document.documentElement.setAttribute('data-theme', info?.dataTheme || normalized);
+
+  if (theme !== normalized) {
+    console.warn(`Theme '${theme}' was normalized to '${normalized}'.`);
+  }
 }
 
 // Apply selected bubble style
@@ -2232,15 +2666,6 @@ function applyBubbleStyle(style) {
 
 // Set up event listeners
 function setupEventListeners() {
-  // Hide mobile nav footer when input is focused (for mobile UX)
-  if (dom.messageInput && dom.mobileNavFooter) {
-    dom.messageInput.addEventListener('focus', () => {
-      dom.mobileNavFooter.classList.add('hide-on-input');
-    });
-    dom.messageInput.addEventListener('blur', () => {
-      dom.mobileNavFooter.classList.remove('hide-on-input');
-    });
-  }
   // Create character button
   dom.createCharacterBtn.addEventListener('click', () => showCharacterModal());
 
@@ -2252,9 +2677,18 @@ function setupEventListeners() {
   });
 
   // Clear chat button
-  dom.clearChatBtn.addEventListener('click', () => {
-    clearChatHistory(); // Directly call clearChatHistory
+  dom.clearChatBtn.addEventListener('click', async () => {
+    if (!state.activeCharacter) return;
+    const confirmed = await showConfirm({
+      title: 'Clear Chat History',
+      message: `Clear all messages for '${state.activeCharacter.name}'? The first system/intro message may be preserved depending on backend logic.`,
+      confirmText: 'Clear Chat'
+    });
+    if (confirmed) clearChatHistory();
   });
+
+  // Scene break button
+  dom.sceneBreakBtn.addEventListener('click', insertSceneBreak);
 
   // Settings button
   dom.settingsBtn.addEventListener('click', showSettingsModal);
@@ -2282,6 +2716,21 @@ function setupEventListeners() {
     welcomeCreateBtn.addEventListener('click', () => showCharacterModal());
   }
 
+  // Chat tools dropdown toggle
+  if (dom.chatToolsToggle) {
+    dom.chatToolsToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dom.chatToolsMenu.classList.toggle('visible');
+    });
+  }
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (dom.chatToolsMenu && dom.chatToolsMenu.classList.contains('visible') && !dom.chatToolsMenu.contains(e.target) && e.target !== dom.chatToolsToggle) {
+      dom.chatToolsMenu.classList.remove('visible');
+    }
+  });
+
   // Emoji button
   dom.emojiBtn.addEventListener('click', (e) => {
     e.stopPropagation(); // Prevent document click handler
@@ -2305,28 +2754,27 @@ function setupEventListeners() {
     }
   });
 
-  // MOBILE UI HANDLERS
-  // Mobile menu toggle button
-  if (dom.mobileMenuToggle) {
-    dom.mobileMenuToggle.addEventListener('click', toggleMobileMenu);
-  }
-
-  // Mobile tab navigation
-  if (dom.mobileNavFooter) {
-    const mobileTabBtns = dom.mobileNavFooter.querySelectorAll('.mobile-tab-btn');
-    mobileTabBtns.forEach(btn => {
-      btn.addEventListener('click', () => handleMobileTabChange(btn));
+  // Mobile back button from chat to character list
+  const mobileBackBtn = document.getElementById('mobile-back-btn');
+  if (mobileBackBtn) {
+    mobileBackBtn.addEventListener('click', () => {
+      document.body.classList.remove('mobile-chat-active');
+      state.activeCharacter = null; // Allow re-selection
+      renderCharacterList();
     });
   }
 
-  // Handle clicks outside the expanded mobile menu to close it
-  document.addEventListener('click', (e) => {
-    if (dom.sidebar && dom.sidebar.classList.contains('expanded') &&
-      !dom.sidebar.contains(e.target) &&
-      e.target !== dom.mobileMenuToggle) {
-      dom.sidebar.classList.remove('expanded');
-    }
-  });
+  // Desktop sidebar toggle (always bind; CSS/markup controls visibility)
+  if (dom.desktopSidebarToggle) {
+    dom.desktopSidebarToggle.addEventListener('click', () => {
+      const container = document.querySelector('.app-container');
+      container.classList.toggle('sidebar-collapsed');
+      const isCollapsed = container.classList.contains('sidebar-collapsed');
+      localStorage.setItem('sidebarCollapsed', isCollapsed);
+      // Reflect state for assistive tech
+      dom.desktopSidebarToggle.setAttribute('aria-pressed', isCollapsed ? 'true' : 'false');
+    });
+  }
 }
 
 // Show error message (now using toast system)
@@ -2337,6 +2785,15 @@ function showErrorMessage(message) {
 // Show success message (now using toast system)
 function showSuccessMessage(message) {
   displayToast(message, 'success');
+}
+
+// Insert a scene break into the chat
+function insertSceneBreak() {
+  if (!state.activeCharacter) return;
+
+  state.chatHistory.push({ role: 'system', type: 'scene-break', timestamp: Date.now() });
+  renderChatHistory();
+  saveChatHistory();
 }
 
 // Display notification message (deprecated, use displayToast instead)
@@ -2458,7 +2915,7 @@ async function regenerateResponse() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         characterName: state.activeCharacter.name,
-        message: lastUserMessage,
+        message: userMessageContent,
         settings: state.settings
       })
     }, 300000, 1); // 5 minute timeout, 1 retry only (total max 10 minutes)
@@ -2773,77 +3230,7 @@ function extractTopics(messages) {
 // Start the application when the DOM is loaded
 document.addEventListener('DOMContentLoaded', initApp);
 
-// Mobile UI Functions
-function toggleMobileMenu(event) {
-  // Prevent the event from propagating to document click handler
-  event.stopPropagation();
-
-  // Only toggle sidebar on mobile devices
-  if (isMobile()) {
-    // Toggle the expanded class on sidebar
-    dom.sidebar.classList.toggle('expanded');
-  }
-}
-
-// Handle mobile tab navigation
-function handleMobileTabChange(selectedTabBtn) {
-  if (!selectedTabBtn) return;
-
-  // Only handle mobile tab changes on mobile devices
-  if (!isMobile()) return;
-
-  // Update active button
-  const allTabBtns = dom.mobileNavFooter.querySelectorAll('.mobile-tab-btn');
-  allTabBtns.forEach(btn => {
-    btn.classList.toggle('active', btn === selectedTabBtn);
-  });
-
-  // Get the view to show
-  const viewToShow = selectedTabBtn.dataset.view;
-
-  // Handle different views
-  switch (viewToShow) {
-    case 'chat':
-      // Collapse the sidebar if it's expanded
-      dom.sidebar.classList.remove('expanded');
-      // Make sure chat is visible and welcome screen is hidden (if character is selected)
-      if (state.activeCharacter) {
-        dom.welcomeScreen.classList.add('hidden');
-        dom.chatContainer.classList.remove('hidden');
-      }
-      break;
-    case 'characters':
-      // Use the new dedicated mobile character selector instead of the sidebar
-      if (typeof showMobileCharacterSelector === 'function') {
-        // Use the mobile-specific UI if available
-        showMobileCharacterSelector();
-      } else {
-        // Fallback to old behavior if mobile-ui.js isn't loaded
-        dom.sidebar.classList.add('expanded');
-        // Make sure the character list is visible and properly displayed
-        if (dom.characterList) {
-          renderCharacterList();
-          const sidebarSection = dom.sidebar.querySelector('.sidebar-section');
-          if (sidebarSection) {
-            sidebarSection.style.display = 'flex';
-            sidebarSection.style.flexDirection = 'column';
-            sidebarSection.style.width = '100%';
-          }
-        }
-      }
-      break;
-
-    case 'new-character':
-      // Show character creation modal
-      showCharacterModal();
-      break;
-
-    case 'settings':
-      // Show settings modal
-      showSettingsModal();
-      break;
-  }
-}
+// Removed obsolete mobile UI functions (toggleMobileMenu, handleMobileTabChange)
 
 // Function to safely expose state to other scripts
 function getAppState() {
@@ -2856,3 +3243,289 @@ function getAppState() {
 
 // Expose the function to window for access from other scripts
 window.getAppState = getAppState;
+// Global namespace to avoid polluting window directly with many functions
+window.ChunRP = {
+  getAppState,
+  selectCharacter,
+  showCharacterModal,
+  showSettingsModal
+};
+
+// --- STREAMING SUPPORT PATCH BEGIN ---
+// We patch showSettingsModal by monkey-patching after its definition to inject the checkbox if not present.
+(function(){
+  const originalShowSettingsModal = showSettingsModal;
+  showSettingsModal = function patchedShowSettingsModal(){
+    originalShowSettingsModal();
+    try {
+      const paramsContainer = document.querySelector('.settings-modal #models-tab .form-group label[for="max-context-tokens"]').closest('.form-group').parentElement; // param grouping div
+      if (paramsContainer && !document.getElementById('enable-streaming')) {
+        const streamingDiv = document.createElement('div');
+        streamingDiv.className = 'param-group';
+        streamingDiv.innerHTML = `
+          <label style="display:flex; gap:6px; align-items:center;">
+            <input type="checkbox" id="enable-streaming" ${state.settings.stream ? 'checked' : ''} /> Enable Streaming Responses
+          </label>
+          <small>Progressively render model output (may increase token billing)</small>
+        `;
+        paramsContainer.appendChild(streamingDiv);
+      }
+    } catch(e) { console.warn('Streaming toggle injection failed:', e); }
+  };
+})();
+
+// Patch saveSettingsFromForm to include stream flag if not already patched
+(function(){
+  const originalSave = saveSettingsFromForm;
+  saveSettingsFromForm = async function patchedSaveSettingsFromForm(){
+    const checkbox = document.getElementById('enable-streaming');
+    const previousStream = state.settings.stream;
+    await originalSave();
+    if (checkbox) {
+      state.settings.stream = checkbox.checked;
+    } else if (typeof previousStream !== 'undefined') {
+      state.settings.stream = previousStream; // retain
+    }
+  };
+})();
+
+// Helper to update only the last assistant message DOM during streaming
+function updateLastAssistantMessageDOMStreaming(){
+  const container = dom.chatMessages;
+  const assistantMessages = container.querySelectorAll('.message.assistant');
+  const target = assistantMessages[assistantMessages.length - 1];
+  if (!target) return;
+  const bubble = target.querySelector('.message-bubble');
+  if (!bubble) return;
+  const message = state.chatHistory[state.chatHistory.length - 1];
+  if (!message) return;
+  if (message.failed) {
+    bubble.innerHTML = `<div class="message-error-content"><i class="ri-error-warning-line"></i><span>${message.content}</span></div>`;
+    return;
+  }
+  const full = typeof message.content === 'string' ? message.content : String(message.content || '');
+  const thinkRegex = /<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>/gi;
+  let thoughts = [];
+  let visible;
+  if (message.pending) {
+    // While streaming, keep reasoning inline instead of separating.
+    // Replace <think> blocks with inline span styling.
+    function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+    visible = full.replace(thinkRegex, (_, inner) => `<span class=\"inline-think\">${esc(inner.trim())}</span>`);
+  } else {
+    // After completion: extract and remove from visible.
+    let m;
+    while ((m = thinkRegex.exec(full)) !== null) {
+      const seg = m[1].trim();
+      if (seg) thoughts.push(seg);
+    }
+    visible = full.replace(thinkRegex, '').trim();
+  }
+  try { marked.setOptions({ breaks:true, gfm:true, sanitize:false }); } catch {}
+  // Sanitize content before rendering with marked
+  const sanitizedContent = DOMPurify.sanitize(marked.parse(visible || ''));
+  bubble.innerHTML = sanitizedContent;
+  bubble.dataset.originalContent = full;
+  // Only create thought container after stream completion (pending removed)
+  if (!message.pending) {
+    let thoughtContainer = target.querySelector('.message-thought-container');
+    if (thoughts.length > 0) {
+      if (!thoughtContainer) {
+        thoughtContainer = document.createElement('div');
+        thoughtContainer.className = 'message-thought-container';
+        const btn = document.createElement('button');
+        btn.className = 'thought-btn';
+        btn.innerHTML = '<i class=\"ri-psychotherapy-line\"></i>';
+        btn.title = 'View character thoughts';
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'thought-content';
+        thoughtContainer.appendChild(btn);
+        thoughtContainer.appendChild(contentDiv);
+        target.appendChild(thoughtContainer);
+      }
+      const contentDiv = thoughtContainer.querySelector('.thought-content');
+      if (contentDiv) contentDiv.innerHTML = thoughts.join('<hr>');
+    }
+  }
+  if (message.pending && !bubble.querySelector('.message-pending')) {
+    const pendingDiv = document.createElement('div');
+    pendingDiv.className = 'message-pending';
+    pendingDiv.innerHTML = '<span style="color:gray"><i class="ri-time-line"></i> Streaming...</span>';
+    bubble.appendChild(pendingDiv);
+  }
+  scrollToBottom();
+}
+
+async function streamAssistantResponse(userMessage, messageId){
+  try {
+    // Insert placeholder assistant message
+    state.chatHistory.push({ role: 'assistant', content: '', pending: true });
+    renderChatHistory();
+    scrollToBottom();
+    const response = await fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ characterName: state.activeCharacter.name, message: userMessage, messageId, settings: state.settings })
+    });
+    if (!response.ok || !response.body) {
+      throw new Error('Streaming request failed');
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        let evt; try { evt = JSON.parse(line); } catch { continue; }
+        const last = state.chatHistory[state.chatHistory.length - 1];
+        if (!last || last.role !== 'assistant') continue;
+        if (evt.type === 'token') {
+          last.content += evt.token;
+          updateLastAssistantMessageDOMStreaming();
+        } else if (evt.type === 'done') {
+          last.content = evt.response || last.content;
+          delete last.pending;
+          removeGeneratingIndicator();
+          updateLastAssistantMessageDOMStreaming();
+          await saveChatHistory();
+        } else if (evt.type === 'error') {
+          last.failed = true;
+          last.content = evt.error;
+          delete last.pending;
+          removeGeneratingIndicator();
+          updateLastAssistantMessageDOMStreaming();
+        }
+      }
+    }
+    // Safety cleanup if still pending
+    const last = state.chatHistory[state.chatHistory.length - 1];
+    if (last && last.pending) {
+      delete last.pending;
+      removeGeneratingIndicator();
+      updateLastAssistantMessageDOMStreaming();
+    }
+  } catch (e) {
+    console.error('Streaming error:', e);
+    removeGeneratingIndicator();
+    state.chatHistory.push({ role: 'assistant', content: 'Streaming failed: ' + (e.message || e), failed: true });
+    renderChatHistory();
+  }
+}
+
+// Patch sendMessage to branch on streaming flag
+(function(){
+  const originalSendMessage = sendMessage;
+  sendMessage = async function patchedSendMessage(){
+    // We replicate early extraction logic from original function by peeking into its code is complex; rely on existing implementation
+    // But we intercept after user message added: detect generating indicator present and state.isGenerating true.
+    // So we let original function run if streaming disabled.
+    if (!state.settings?.stream) return originalSendMessage();
+    // Custom streamlined version for streaming to avoid duplicate request
+    const message = dom.messageInput.value.trim();
+    if (!message || !state.activeCharacter || state.isGenerating) return;
+    const messageId = ++state.lastMessageId;
+    state.chatHistory.push({ role: 'user', content: message, id: messageId });
+    renderChatHistory();
+    dom.messageInput.value='';
+    state.isGenerating = true;
+    addGeneratingIndicator();
+    try {
+      await streamAssistantResponse(message, messageId);
+    } finally {
+      state.isGenerating = false;
+      state.currentAbortController = null;
+    }
+  };
+})();
+// --- STREAMING SUPPORT PATCH END ---
+
+// --- Mobile Select Overlay (narrow viewports only) ---
+// Global singleton to prevent duplicate overlays and listeners
+if (!window.__SelectOverlay__) {
+  window.__SelectOverlay__ = { 
+    overlayEl: null, 
+    escHandler: null, 
+    inited: false,
+    closeOverlay: function() {
+      if (this.overlayEl) this.overlayEl.classList.remove('visible');
+    }
+  };
+}
+
+function enableMobileSelectOverlay(scope) {
+  try {
+    if (!scope) return;
+    const activates = () => window.innerWidth <= 768; // Only intercept on narrow screens
+    const selects = scope.querySelectorAll('select');
+    if (!selects.length) return;
+    
+    const S = window.__SelectOverlay__;
+    
+    function ensureOverlay() {
+      if (!S.inited) {
+        S.overlayEl = document.createElement('div');
+        S.overlayEl.className = 'select-overlay';
+        S.overlayEl.innerHTML = `
+          <div class="select-sheet" role="dialog" aria-modal="true" aria-labelledby="select-overlay-title">
+            <header>
+              <h3 id="select-overlay-title">Choose an option</h3>
+              <button type="button" class="btn icon-btn" data-close aria-label="Close"><i class="ri-close-line"></i></button>
+            </header>
+            <div class="select-options" role="listbox"></div>
+          </div>`;
+        document.body.appendChild(S.overlayEl);
+        
+        S.overlayEl.addEventListener('click', (e) => {
+          if (e.target === S.overlayEl || e.target?.dataset?.close !== undefined) S.closeOverlay();
+        });
+        
+        S.escHandler = (e) => { if (e.key === 'Escape') S.closeOverlay(); };
+        document.addEventListener('keydown', S.escHandler);
+        S.inited = true;
+      }
+      return S.overlayEl;
+    }
+    
+    function openOverlayForSelect(sel) {
+      const ov = ensureOverlay();
+      const list = ov.querySelector('.select-options');
+      list.innerHTML = '';
+      Array.from(sel.options).forEach(opt => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'select-option';
+        btn.setAttribute('role','option');
+        if (opt.selected) btn.setAttribute('aria-selected','true');
+        btn.textContent = opt.textContent;
+        btn.addEventListener('click', () => {
+          sel.value = opt.value;
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+          S.closeOverlay();
+          setTimeout(() => sel.focus(), 0);
+        });
+        list.appendChild(btn);
+      });
+      ov.classList.add('visible');
+    }
+    
+    selects.forEach(sel => {
+      sel.addEventListener('mousedown', (e) => {
+        if (!activates()) return;
+        e.preventDefault();
+        openOverlayForSelect(sel);
+      });
+      sel.addEventListener('keydown', (e) => {
+        if (!activates()) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openOverlayForSelect(sel);
+        }
+      });
+    });
+  } catch (e) { /* silent safeguard */ }
+}

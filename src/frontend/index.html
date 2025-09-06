@@ -16,14 +16,17 @@
   <div id="notification-area"></div>
 
   <div class="app-container"> 
-    <!-- Sidebar -->    <aside class="sidebar">
+  <!-- Sidebar -->
+  <!-- make sidebar addressable by aria-controls and improve semantics -->
+  <aside id="app-sidebar" class="sidebar" role="navigation" aria-label="Main navigation">
       <div class="sidebar-header">
         <div class="app-logo">
           <img src="assets/icon.svg" alt="ChunRP" class="app-icon">
           <h1>ChunRP</h1>
         </div>
-        <!-- Mobile menu toggle button (hidden on desktop) -->
-        <button id="mobile-menu-toggle" aria-label="Toggle Menu">
+  <!-- Mobile menu toggle button (hidden on desktop) -->
+  <button id="mobile-menu-toggle" aria-label="Toggle Menu"
+    aria-controls="app-sidebar" aria-expanded="false" title="Open menu (mobile)">
           <i class="ri-menu-line"></i>
         </button>
         <button id="create-character-btn" class="btn primary rounded">
@@ -51,17 +54,25 @@
           <i class="ri-settings-3-line"></i>
           <span>Settings</span>
         </button>
-        <div class="connection-status">
+        <div class="conn-status-badge">
           <span class="status-indicator online"></span>
           <span class="status-text">Connected</span>
         </div>
       </div>
     </aside>
 
+    <!-- Desktop sidebar toggle button -->
+    <button id="desktop-sidebar-toggle" class="btn icon-btn" aria-label="Toggle Sidebar">
+      <i class="ri-arrow-left-s-line"></i>
+    </button>
+
     <!-- Main Chat Area -->
     <main class="main-content">
       <div class="chat-container hidden" id="chat-container">
         <div class="chat-header">
+          <button id="mobile-back-btn" class="btn icon-btn mobile-only" aria-label="Back to character list">
+            <i class="ri-arrow-left-s-line"></i>
+          </button>
           <div class="character-info">
             <img id="character-avatar" src="assets/default-avatar.svg" alt="Character" />
             <div class="character-text">
@@ -69,24 +80,23 @@
               <p class="character-status">Online</p>
             </div>
           </div>
+          <!-- Redesigned Chat Actions: Tools are now in a dropdown menu -->
           <div class="chat-actions">
-            <button id="edit-character-btn" class="btn icon-btn tooltip-btn" data-tooltip="Edit Character">
-              <i class="ri-edit-line"></i>
-            </button>            <button id="memory-view-btn" class="btn icon-btn tooltip-btn" data-tooltip="View Memories">
-              <i class="ri-brain-line"></i>
+            <button id="chat-tools-toggle" class="btn icon-btn tooltip-btn" data-tooltip="More Options">
+              <i class="ri-more-2-fill"></i>
             </button>
-            <button id="recycle-memory-btn" class="btn icon-btn tooltip-btn" data-tooltip="Recycle Memories">
-              <i class="ri-recycle-line"></i>
-            </button>
-            <button id="clear-chat-btn" class="btn icon-btn tooltip-btn" data-tooltip="Clear Chat">
-              <i class="ri-delete-bin-line"></i>
-            </button>
-            <button id="export-chat-btn" class="btn icon-btn tooltip-btn" data-tooltip="Export Chat">
-              <i class="ri-download-2-line"></i>
-            </button>
-            <button id="import-chat-btn" class="btn icon-btn tooltip-btn" data-tooltip="Import Chat">
-              <i class="ri-upload-2-line"></i>
-            </button>
+            <div id="chat-tools-menu" class="dropdown-menu">
+              <button id="edit-character-btn" class="dropdown-item"><i class="ri-edit-line"></i> Edit Character</button>
+              <button id="memory-view-btn" class="dropdown-item"><i class="ri-brain-line"></i> View Memories</button>
+              <button id="recycle-memory-btn" class="dropdown-item"><i class="ri-recycle-line"></i> Recycle Memories</button>
+              <button id="regen-btn" class="dropdown-item"><i class="ri-refresh-line"></i> Regenerate Response</button>
+              <hr>
+              <button id="scene-break-btn" class="dropdown-item"><i class="ri-scissors-line"></i> New Scene</button>
+              <button id="clear-chat-btn" class="dropdown-item"><i class="ri-delete-bin-line"></i> Clear Chat</button>
+              <hr>
+              <button id="export-chat-btn" class="dropdown-item"><i class="ri-download-2-line"></i> Export Chat</button>
+              <button id="import-chat-btn" class="dropdown-item"><i class="ri-upload-2-line"></i> Import Chat</button>
+            </div>
             <input type="file" id="import-chat-input" accept="application/json" style="display:none" />
           </div>
         </div>
@@ -102,9 +112,6 @@
                 <button class="btn icon-btn tooltip-btn" id="emoji-btn" data-tooltip="Add Emoji">
                   <i class="ri-emotion-line"></i>
                 </button>
-                <button class="btn icon-btn tooltip-btn" id="regen-btn" data-tooltip="Regenerate Response">
-                  <i class="ri-refresh-line"></i>
-                </button>
               </div>
               <button id="send-message-btn" class="btn primary rounded">
                 <i class="ri-send-plane-fill"></i>
@@ -119,12 +126,23 @@
         <div class="welcome-content">
           <img src="assets/splash.svg" alt="ChunRP" class="welcome-logo">
           <h2>Welcome to ChunRP</h2>
-          <p>Create a character or select an existing one to start chatting.</p>
+            <p class="welcome-tagline">Immersive character-driven roleplay powered by adaptive memory & AI.</p>
+            <div class="welcome-highlights" aria-label="Key Features">
+              <div class="highlight"><i class="ri-magic-line"></i><span>Dynamic Persona Memory</span></div>
+              <div class="highlight"><i class="ri-brain-line"></i><span>Context-Aware Recall</span></div>
+              <div class="highlight"><i class="ri-shake-hands-line"></i><span>Multi-Character Support</span></div>
+              <div class="highlight"><i class="ri-flashlight-line"></i><span>Realtime Streaming (Optional)</span></div>
+            </div>
+            <div class="welcome-tip" id="welcome-rotating-tip" aria-live="polite"></div>
           <div class="welcome-actions">
             <button id="welcome-create-btn" class="btn primary large">
               <i class="ri-user-add-line"></i>
               Create New Character
             </button>
+              <button type="button" id="welcome-scroll-btn" class="btn secondary large alt-start-btn" style="display:none;">
+                <i class="ri-chat-3-line"></i>
+                Continue
+              </button>
           </div>
         </div>
       </div>
@@ -167,29 +185,22 @@
   </div>
   <!-- Tooltip container for dynamic tooltips -->
   <div id="tooltip" class="tooltip"></div>
-  
-  <!-- Mobile Navigation Footer (hidden on desktop) -->
-  <div class="mobile-nav-footer" id="mobile-nav-footer">
-    <button class="mobile-tab-btn active" data-view="chat">
-      <i class="ri-chat-3-line"></i>
-      <span>Chat</span>
-    </button>
-    <button class="mobile-tab-btn" data-view="characters">
-      <i class="ri-user-line"></i>
-      <span>Characters</span>
-    </button>
-    <button class="mobile-tab-btn" data-view="new-character">
-      <i class="ri-user-add-line"></i>
-      <span>Create</span>
-    </button>
-    <button class="mobile-tab-btn" data-view="settings">
-      <i class="ri-settings-3-line"></i>
-      <span>Settings</span>
-    </button>
+
+  <!-- Reusable Confirmation Dialog -->
+  <div id="confirm-dialog" class="confirm-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+    <div class="confirm-dialog-content">
+      <h3 id="confirm-title">Confirm</h3>
+      <p id="confirm-message">Are you sure?</p>
+      <div class="confirm-dialog-actions">
+        <button type="button" class="btn secondary" id="confirm-cancel-btn">Cancel</button>
+        <button type="button" class="btn primary" id="confirm-ok-btn">Yes</button>
+      </div>
+    </div>
   </div>
+  
     <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.5/dist/purify.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="js/app.js"></script>
-  <script src="js/mobile-ui.js"></script>
 </body>
 </html>

@@ -41,7 +41,7 @@ function createCleanupArchive() {
     console.log('\n🎉 Cleanup completed successfully!');
     console.log('📁 Old JSON files archived to: data-json-archive/');
     console.log('📊 SQLite database: data/chunrp.db');
-    console.log('🧠 Vector memories: data/memory-vectra/ (unchanged)');
+  console.log('🧠 Vector memories now stored inside chunrp.db (sqlite-vec). Legacy directory (if present) can be removed.');
     
     return true;
   } catch (error) {

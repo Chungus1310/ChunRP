@@ -25,7 +25,12 @@ const characterSchema = {
 // Helper function to convert database row to character object
 function dbRowToCharacter(row, relationships = []) {
   if (!row) return null;
-  
+  let settingsOverride = {};
+  try {
+    settingsOverride = JSON.parse(row.settings_override || '{}');
+  } catch (e) {
+    console.warn(`Invalid settings_override JSON for character ${row.name}:`, e);
+  }
   const character = {
     id: row.id,
     name: row.name,
@@ -35,7 +40,7 @@ function dbRowToCharacter(row, relationships = []) {
     appearance: row.appearance || '',
     avatarUrl: row.avatar_url || '',
     firstMessage: row.first_message || '',
-    settingsOverride: JSON.parse(row.settings_override || '{}'),
+    settingsOverride,
     createdAt: row.created_at,
     modifiedAt: row.modified_at,
     relationships: {},
@@ -332,17 +337,6 @@ function loadChatHistory(characterName) {
   }
 }
 
-// Utility to strip <think>...</think> tags and their content from a string
-function stripThinkTags(text) {
-  // Hardened: Ensure we always work with a string and return a string, even for null/undefined input.
-  if (typeof text !== 'string') {
-    return '';
-  }
-  // Remove all <think>...</think> blocks, including multiline
-  return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
-             .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
-}
-
 // Save chat history for a character
 function saveChatHistory(characterName, chatHistory) {
   try {
@@ -365,24 +359,23 @@ function saveChatHistory(characterName, chatHistory) {
     `);
     
     const transaction = db.transaction(() => {
-      deleteStmt.run(charRow.id);
-      
-      for (const message of chatHistory) {
-        // Ensure message and its core properties are valid
-        if (message && message.role && typeof message.content !== 'undefined' && message.content !== null) {
-          // Strip <think> tags from content before saving
-          const filteredContent = stripThinkTags(message.content);
-          // Only insert if there's actual content after stripping tags
-          if (filteredContent.length > 0) {
-            // --- FIX: Ensure all bound parameters are of a valid type to prevent crashes ---
-            const characterId = charRow.id;
-            const role = String(message.role);
-            const content = String(filteredContent);
-            const timestamp = (typeof message.timestamp === 'number' && !isNaN(message.timestamp)) ? message.timestamp : Date.now();
-            
-            insertStmt.run(characterId, role, content, timestamp);
+      try {
+        deleteStmt.run(charRow.id);
+        for (const message of chatHistory) {
+          if (message && message.role && typeof message.content === 'string') {
+            const contentToSave = message.content;
+            if (contentToSave.trim().length > 0) {
+              const characterId = charRow.id;
+              const role = String(message.role);
+              const content = contentToSave;
+              const timestamp = (typeof message.timestamp === 'number' && !isNaN(message.timestamp)) ? message.timestamp : Date.now();
+              insertStmt.run(characterId, role, content, timestamp);
+            }
           }
         }
+      } catch (err) {
+        console.error(`Transaction failed for ${characterName}:`, err);
+        throw err; // Trigger rollback
       }
     });
     
@@ -415,7 +408,7 @@ async function clearChatHistory(characterName) {
     // Save the preserved history
     const chatHistoryCleared = saveChatHistory(characterName, preservedHistory);
     
-    // Clear memories from Vectra
+  // Clear memories from unified vector store
     const { clearCharacterMemories } = await import('./memory-system.js');
     const memoriesCleared = await clearCharacterMemories(characterName);
     

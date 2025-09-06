@@ -8,14 +8,7 @@
   --mobile-transition: 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-/* Hide mobile elements by default */
-#mobile-menu-toggle {
-  display: none;
-}
-
-.mobile-nav-footer {
-  display: none;
-}
+/* Removed legacy mobile menu toggle & nav footer default hides */
 
 /* Enhanced Edit Mode for Mobile */
 @media screen and (max-width: 1024px) {
@@ -54,9 +47,9 @@
     width: 280px;
   }
   
-  /* Make messages slightly wider */
+  /* Make messages wider on tablets for better screen utilization */
   .message {
-    max-width: 85%;
+    max-width: 92% !important;
   }
 }
 
@@ -71,282 +64,137 @@
 }
 
 /* Enhanced Tablet Styles - Applied at 768px and below */
+/* Base style for mobile-only elements */
+.mobile-only {
+  display: none;
+}
 @media screen and (max-width: 768px) {
-  /* Minimal effects for better mobile performance */
-  * {
-    backdrop-filter: none !important;
-    box-shadow: var(--shadow-soft) !important;
-  }
-
-  .chat-input-container::before,
-  .sidebar::before {
-    display: none !important;
-  }
-
-  /* Reduce animations and transitions for smoother experience */
-  .message, .btn, .chat-input-area {
-    transition: all 0.2s ease !important;
-  }
-
-  /* Modern App Layout for Tablets */
+  /* --- FIX: Reset desktop container styles for mobile --- */
   .app-container {
-    flex-direction: column;
-    height: 100vh;
+    /* 1. Remove the 320px padding inherited from desktop styles. This is the main fix. */
+    padding-left: 0;
+    /* 2. Revert display mode as mobile doesn't use the side-by-side flex layout. */
+    display: block;
+    min-height: 100vh;
   }
-  
-  /* Enhanced Mobile Sidebar */
+  @supports (min-height: 100dvh) {
+    .app-container { min-height: 100dvh; }
+  }
+
+  /* --- NEW MOBILE VIEW SYSTEM --- */
+  /* By default, show the character list (sidebar) and hide the chat */
   .sidebar {
-    width: 100%;
-    height: var(--mobile-header-height);
-    flex-direction: row;
-    align-items: center;
-    padding: var(--spacing-md) var(--spacing-lg);
-    overflow: hidden;
+    /* 3. Override 'position: absolute' from desktop styles to ensure correct flow. */
     position: relative;
-    z-index: 30;
-    transition: all var(--mobile-transition);
-    backdrop-filter: blur(var(--blur-backdrop));
-    border-bottom: 1px solid var(--border-color);
-  }
-  
-  .sidebar.expanded {
-    height: 100vh;
+    width: 100%;
+    height: auto;
+    min-height: 100vh;
     overflow-y: auto;
-    flex-direction: column;
-    align-items: stretch;
-    padding: var(--spacing-lg);
-    box-shadow: var(--shadow-strong);
+    border-right: none;
+    display: flex;
+    z-index: 10;
   }
-  
-  /* Hide sections by default on mobile */
-  .sidebar-section, 
-  .sidebar-footer {
+  @supports (min-height: 100dvh) {
+    .sidebar { min-height: 100dvh; }
+  }
+
+  .main-content {
     display: none;
   }
-  
-  /* Show all elements when expanded */
-  .sidebar.expanded .sidebar-section,
-  .sidebar.expanded .sidebar-footer {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    opacity: 0;
-    animation: fadeIn 0.3s ease 0.1s forwards;
+
+  /* When a chat is active, hide the sidebar and show the chat content */
+  body.mobile-chat-active .sidebar {
+    display: none;
   }
-  
-  /* Enhanced Mobile Header */
-  .sidebar-header {
+
+  body.mobile-chat-active .main-content {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
     width: 100%;
-    padding: 0;
-    margin: 0;
-    border: none;
+    height: 100vh;
   }
-  
-  /* Modern Mobile Toggle Button */
+
+  /* Hide desktop-only elements */
+  #desktop-sidebar-toggle,
   #mobile-menu-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 48px;
-    height: 48px;
-    background: transparent;
-    border: none;
-    color: var(--text-color);
-    font-size: 1.5rem;
-    cursor: pointer;
-    border-radius: var(--radius-lg);
-    transition: all var(--transition-fast);
-  }
-  
-  #mobile-menu-toggle:hover {
-    background: var(--hover-bg);
-    transform: scale(1.05);
-  }
-  
-  /* Main content adjustments */
-  .main-content {
-    height: calc(100vh - var(--mobile-header-height));
-    display: flex;
-    flex-direction: column;
+    display: none;
   }
 
-  /* Enhanced Chat Header */
+  /* Redesign sidebar header to be the main app header */
+  .sidebar-header {
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  /* Redesign chat header for mobile */
   .chat-header {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    backdrop-filter: blur(var(--blur-backdrop));
-    padding: var(--spacing-md) var(--spacing-lg);
-  }
-  
-  /* Better message spacing on tablets */
-  .message {
-    max-width: 90%;
-  }
-    /* Chat container adjustments */
-  .chat-container {
-    height: calc(100% - var(--mobile-header-height));
-  }
-  
-  /* Ensure chat messages are not hidden behind input/footer */
-  .chat-messages {
-    padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important;
-    overflow-y: auto;
-    scroll-behavior: smooth;
+    padding: var(--spacing-sm) var(--spacing-md);
   }
 
-  /* Improve message spacing and text wrapping */
-  .message {
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    hyphens: auto;
+  .chat-header .character-info {
+    flex-grow: 1;
+    min-width: 0; /* Allow shrinking */
   }
 
-  .message-content {
-    max-width: 100%;
-    overflow-wrap: break-word;
+  .chat-header #character-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  
-  /* Position the new mobile footer menu */
-  .mobile-nav-footer {
+
+  .mobile-only {
     display: flex;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    background-color: var(--sidebar-bg);
-    backdrop-filter: blur(var(--blur-intensity));
-    border-top: 1px solid var(--border-color);
-    z-index: 20;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    justify-content: space-around;
-    pointer-events: auto;
   }
-  /* Make chat input fixed above the footer on mobile */
+
+  /* Remove the old, non-functional pseudo-element back button */
+  .chat-header .character-info::before {
+    display: none;
+  }
+
+  /* --- NEW FIXED CHAT INPUT --- */
+  .chat-container { position: relative; height: auto; }
+
+  .chat-messages {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+
   .chat-input-container {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: var(--mobile-footer-height);
+    position: sticky;
+    bottom: 0;
     z-index: 30;
     background-color: var(--sidebar-bg);
     border-top: 1px solid var(--border-color);
-    padding: var(--spacing-sm);
-    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.1);
+    padding: var(--spacing-sm) var(--spacing-sm) calc(var(--spacing-sm) + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -2px 16px rgba(0,0,0,0.1);
+    will-change: transform, padding-bottom;
   }
 
-  /* Optimize chat input area for mobile */
   .chat-input-area {
-    flex-direction: column;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm);
-    align-items: stretch;
-    min-height: 60px;
-    max-height: 120px;
-  }
-
-  /* Make textarea take full width on mobile */
-  #message-input {
-    width: 100%;
-    min-height: 44px;
-    max-height: 80px;
-    padding: var(--spacing-sm);
-    border-radius: var(--radius-md);
-    background: var(--input-bg);
-    border: 1px solid var(--border-color);
-    font-size: 16px; /* Prevent zoom on iOS */
-    line-height: 1.4;
-    resize: none;
-    overflow-y: auto;
-    word-wrap: break-word;
-    box-sizing: border-box;
-  }
-
-  #message-input:focus {
-    border-color: var(--primary-color);
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
-  }
-
-  /* Position action buttons below input on mobile */
-  .message-actions {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0;
-    gap: var(--spacing-sm);
-  }
-
-  /* Group secondary actions */
-  .message-actions .action-group {
-    display: flex;
+    align-items: flex-end;
     gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
   }
 
-  /* Make send button more prominent on mobile */
+  .message-actions {
+    padding-bottom: 4px; /* Align with textarea baseline */
+  }
+
   #send-message-btn {
     min-width: 60px;
     height: 44px;
     border-radius: var(--radius-lg);
     font-size: 1.1rem;
   }
-
-  /* When input is focused, hide the mobile nav footer for more space */
-  .mobile-nav-footer.hide-on-input {
-    display: none !important;
-  }
   
-  /* Mobile tab buttons */
-  .mobile-tab-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: var(--spacing-xs);
-    color: var(--text-light);
-    background: transparent;
-    border: none;
-    font-size: var(--font-sm);
-    cursor: pointer;
-  }
-  
-  .mobile-tab-btn i {
-    font-size: 1.3rem;
-    margin-bottom: var(--spacing-xs);
-  }
-  
-  .mobile-tab-btn.active {
-    color: var(--primary-color);
-  }
-  
-  /* Modal adjustments for mobile */
   .modal-content {
     width: 95%;
     max-height: 90vh;
   }
   
-  /* Character card adjustments */
-  .character-card {
-    padding: var(--spacing-md);
-  }
-  
-  /* Memory panel takes full width */
-  .side-panel {
-    width: 100%;
-    right: -100%;
-  }
-  
-  /* Form adjustments */
-  .param-group {
-    flex-wrap: wrap;
-  }
-  
-  .param-group label {
-    min-width: 100%;
-    margin-bottom: var(--spacing-xs);
-  }
+  .character-card { padding: var(--spacing-md); }
+  .side-panel { width: 100%; right: -100%; }
+  .param-group { flex-wrap: wrap; }
+  .param-group label { min-width: 100%; margin-bottom: var(--spacing-xs); }
 }
 
 /* Mobile Styles - Applied at 480px and below */
@@ -362,20 +210,15 @@
   }
   
   .chat-messages {
-    padding: var(--spacing-sm);
-    padding-bottom: calc(140px + env(safe-area-inset-bottom)) !important;
+    padding: var(--spacing-xs);
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
   }
   
-  /* Messages take full width on small phones */
-  .message {
-    max-width: 95%;
-  }
+  /* Messages take fuller width on mobile for better screen utilization */
+  .message { max-width: 98% !important; }
   
   /* Make avatar smaller */
-  .message .avatar, .chat-header #character-avatar {
-    width: 32px;
-    height: 32px;
-  }
+  .message .avatar, .chat-header #character-avatar { width: 32px; height: 32px; }
   
   /* Simplified buttons in chat header */
   .chat-actions {
@@ -407,11 +250,7 @@
     padding: 0 var(--spacing-sm);
   }
 
-  /* Auto-hide mobile nav when input is focused */
-  .mobile-nav-footer.input-focused {
-    transform: translateY(100%);
-    transition: transform 0.3s ease;
-  }
+  /* Removed mobile nav footer input-focused behavior */
   
   /* Modal adjustments - even more simplified */
   .modal-content {
@@ -441,7 +280,7 @@
     /* Emoji picker needs repositioning */
   .emoji-picker-container {
     position: fixed;
-    bottom: 120px;
+    bottom: calc(70px + env(safe-area-inset-bottom));
     left: var(--spacing-sm);
     right: var(--spacing-sm);
     width: auto;
@@ -457,8 +296,115 @@
     box-shadow: var(--shadow-strong) !important;
   }
 }
+
+/* ---------- Mobile-specific fixes for header / action buttons ---------- */
+@media screen and (max-width: 768px), (hover: none) {
+  /* Keep chat header visible while scrolling messages */
+  .chat-header {
+    position: sticky;
+    top: 0;
+    z-index: 45; /* above the fixed input (z-index:30) and dropdowns */
+    /* Visual separation */
+    backdrop-filter: blur(var(--blur-intensity));
+  }
+
+  /* Ensure the messages container uses native momentum scrolling on iOS */
+  .chat-messages {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* On touch devices show inline actions (Edit/Delete) positioned to avoid overlaps */
+  /* Hide clutter: reveal via long-press or overflow button */
+  .message-inline-actions {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-fast);
+  }
+  .message.message--actions-visible .message-inline-actions {
+    opacity: 1;
+    pointer-events: auto;
+    position: absolute !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: 8px !important;
+    left: 8px !important;
+    background: var(--card-bg) !important;
+    box-shadow: var(--shadow-soft) !important;
+    padding: 4px !important;
+    border-radius: var(--radius-md) !important;
+    z-index: 10;
+  }
+
+  /* User messages: position on right side in free space */
+  .message.user .message-inline-actions {
+    left: auto !important;
+    right: 8px !important;
+  }
+
+  .message-inline-actions .btn {
+    min-width: 28px;
+    height: 28px;
+    padding: 0;
+    font-size: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    transition: all var(--transition-fast);
+    box-shadow: var(--shadow-soft);
+    color: var(--text-light);
+  }
+
+  /* Small per-message overflow affordance (hidden by default; revealed when active) */
+  .message .message-kebab {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--card-bg);
+    color: var(--text-light);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-soft);
+    opacity: 0; /* hidden until message toggled */
+    pointer-events: none;
+    transition: opacity var(--transition-fast), transform var(--transition-fast);
+  }
+  .message .message-kebab i { font-size: 1rem; }
+  .message .message-kebab:active { opacity: 1; transform: scale(0.96); }
+  .message.message--actions-visible .message-kebab { opacity: 0.85; pointer-events: auto; }
+  /* Lower kebab on user messages to avoid avatar overlap */
+  .message.user .message-kebab { top: 18px; }
+  .message.user { position: relative; }
+
+
+/* Additional mobile enhancements and overrides */
+@media screen and (max-width: 768px) {
+  /* Improve select / dropdown usability in modal on mobile */
+  .modal select, .modal .theme-select { min-height: 48px; font-size: 1rem; line-height: 1.2; }
+  .modal { overscroll-behavior: contain; }
+  .modal .tab-content { -webkit-overflow-scrolling: touch; }
+
+  /* Full-width user messages with minimal padding */
+  .chat-messages .message.user .message-bubble {
+    max-width: 100%;
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 12px;
+    padding-right: 48px; /* reserve space where kebab floats */
+    border-top-right-radius: var(--radius-md);
+  }
+  .chat-messages .message.assistant .message-bubble { max-width: 100%; }
 }
 
+}
 /* Mobile Portrait Orientation Adjustments */
 @media screen and (max-width: 480px) and (orientation: portrait) {
   .chat-input-area {
@@ -472,189 +418,52 @@
 
 /* Mobile Landscape Orientation Adjustments */
 @media screen and (max-height: 480px) and (orientation: landscape) {
-  /* Handle very small height */
-  .chat-input-container {
-    padding: var(--spacing-xs);
-  }
-  
-  .mobile-nav-footer {
-    padding: var(--spacing-xs) var(--spacing-xs);
-  }
-  
-  .mobile-tab-btn i {
-    margin-bottom: 0;
-    font-size: 1.1rem;
-  }
-  
-  .mobile-tab-btn span {
-    display: none; /* Hide text, show only icons */
-  }
+  .chat-input-container { padding: var(--spacing-xs); }
 }
 
 /* Handle notch/dynamic island on modern mobile devices */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
-  .mobile-nav-footer {
-    padding-bottom: calc(var(--spacing-sm) + env(safe-area-inset-bottom));
-  }
-  
-  .chat-input-container {
-    padding-bottom: calc(var(--spacing-sm) + env(safe-area-inset-bottom));
-  }
+  .chat-input-container { padding-bottom: calc(var(--spacing-sm) + env(safe-area-inset-bottom)); }
 }
 
 /* Mobile Character Selector Overlay */
 .mobile-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--background-color);
-  z-index: 1000;
-  display: none;
-  flex-direction: column;
-  animation: mobile-slide-up 0.3s ease forwards;
+  /* Removed legacy mobile overlay, footer nav, and tab button styles */
+  overflow: hidden;
 }
 
-.mobile-overlay.visible {
-  display: flex;
+/* Mobile footer active state & larger send button */
+.mobile-nav-footer .mobile-tab-btn.active {
+  color: var(--primary-text, #fff);
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-medium);
+  transform: translateY(-4px);
+  padding: calc(var(--spacing-xs) + 4px) var(--spacing-sm);
 }
 
-@keyframes mobile-slide-up {
-  from {
-    transform: translateY(30px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
+/* Make send button more thumb-friendly on small phones */
+@media screen and (max-width: 480px) {
+  #send-message-btn {
+    min-width: 64px;
+    height: 48px;
+    border-radius: var(--radius-lg);
+    padding: 0 var(--spacing-md);
+    font-size: 1rem;
   }
 }
 
-.mobile-overlay-content {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  width: 100%;
-}
-
-.mobile-overlay-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-bottom: 1px solid var(--border-color);
-  background-color: var(--sidebar-bg);
-}
-
-.mobile-overlay-header h2 {
-  font-size: var(--font-lg);
-  font-weight: 600;
-  color: var(--text-dark);
-}
-
-.close-mobile-overlay-btn {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  color: var(--text-light);
-  cursor: pointer;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.mobile-character-list-container {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--spacing-sm);
-}
-
-.mobile-character-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-}
-
-.mobile-character-card {
-  display: flex;
-  align-items: center;
-  padding: var(--spacing-md);
-  border-radius: var(--radius-md);
-  background-color: var(--card-bg);
-  border: 1px solid var(--border-color);
-  cursor: pointer;
-  transition: transform 0.2s, background-color 0.2s;
-  min-height: 80px;
-}
-
-.mobile-character-card:active {
-  transform: scale(0.98);
-}
-
-.mobile-character-card.active {
-  border-color: var(--primary-color);
-  background-color: var(--active-bg);
-}
-
-.mobile-character-avatar {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  overflow: hidden;
-  flex-shrink: 0;
-  margin-right: var(--spacing-md);
-  border: 1px solid var(--border-color);
-}
-
-.mobile-character-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.mobile-character-info {
-  flex: 1;
-}
-
-.mobile-character-name {
-  font-size: var(--font-md);
-  font-weight: 600;
-  color: var(--text-dark);
-  margin-bottom: var(--spacing-xs);
-}
-
-.mobile-character-description {
-  font-size: var(--font-sm);
-  color: var(--text-light);
-}
-
-.mobile-character-card i {
-  color: var(--text-light);
-  font-size: 1.5rem;
-  margin-left: var(--spacing-sm);
-}
-
-.mobile-empty-list {
-  padding: var(--spacing-xl);
-  text-align: center;
-  color: var(--text-light);
-}
-
-.mobile-overlay-footer {
-  padding: var(--spacing-md);
-  border-top: 1px solid var(--border-color);
-  background-color: var(--sidebar-bg);
-}
-
-.mobile-overlay-footer .btn {
-  width: 100%;
-  padding: var(--spacing-md);
-}
-
-/* Fix for body when overlay is open to prevent scrolling */
-body.mobile-overlay-open {
-  overflow: hidden;
+/* Hide topbar when actively chatting on mobile for more space */
+@media screen and (max-width: 768px) {
+  body.mobile-chat-active .sidebar {
+    display: none;
+  }
+  
+  body.mobile-chat-active .main-content {
+    height: 100vh;
+  }
+  
+  body.mobile-chat-active .chat-container {
+    height: 100vh;
+  }
 }

@@ -102,14 +102,25 @@ async function initializeDataDirectory() {
   const userDataDir = getDataDirectory();
   const resourcesDataDir = path.join(process.resourcesPath, 'data');
   
-  // If userData data directory doesn't exist and resources data does
-  if (!fs.existsSync(userDataDir) && fs.existsSync(resourcesDataDir)) {
-    console.log('Copying initial data from resources to user directory...');
+  // Use promise-based access to avoid TOCTOU race
+  try {
+    await fs.promises.access(userDataDir);
+    // Directory exists; nothing to do
+  } catch {
+    // User data dir missing – attempt copy or create
     try {
-      fs.cpSync(resourcesDataDir, userDataDir, { recursive: true });
+      await fs.promises.access(resourcesDataDir);
+      console.log('Copying initial data from resources to user directory...');
+      await fs.promises.cp(resourcesDataDir, userDataDir, { recursive: true });
       console.log('Initial data copied successfully');
-    } catch (error) {
-      console.error('Failed to copy initial data:', error);
+    } catch (copyErr) {
+      // Resources data missing; just create directory
+      try {
+        await fs.promises.mkdir(userDataDir, { recursive: true });
+        console.log('Created empty user data directory');
+      } catch (mkdirErr) {
+        console.error('Failed to prepare user data directory:', mkdirErr);
+      }
     }
   }
 }
